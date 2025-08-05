@@ -1786,7 +1786,7 @@
                 cancelEditPinnedPlace(placeId); // Exit edit mode
                 showCustomAlert('Luogo pinnato aggiornato con successo!');
             } else {
-                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine).');
+                showCustomAlert('Per favor, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine).');
             }
         }
 
@@ -1850,6 +1850,26 @@
                     cleanup();
                     resolve(false);
                 };
+            });
+        }
+
+        // Funzione per gestire il toggle dei box collapsibili
+        function setupCollapsibleBoxes() {
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const targetId = header.dataset.target;
+                    const content = document.getElementById(targetId);
+                    const icon = header.querySelector('.toggle-icon');
+
+                    if (content.classList.contains('collapsed')) {
+                        content.classList.remove('collapsed');
+                        icon.setAttribute('data-lucide', 'chevron-up');
+                    } else {
+                        content.classList.add('collapsed');
+                        icon.setAttribute('data-lucide', 'chevron-down');
+                    }
+                    lucide.createIcons(); // Re-render icon
+                });
             });
         }
 
@@ -1978,6 +1998,8 @@
             document.getElementById('filter-tag-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
             document.getElementById('filter-booked-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
 
+            // Setup collapsible boxes
+            setupCollapsibleBoxes();
 
             // Event delegation for delete buttons on pinned places list
             document.getElementById('pinned-places-list').addEventListener('click', (e) => {
@@ -2282,6 +2304,35 @@
             border-radius: 0.5rem; /* rounded-lg */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
         }
+
+        /* Collapsible box styles */
+        .collapsible-content {
+            max-height: 1000px; /* Large enough to show all content */
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        .collapsible-header {
+            padding-bottom: 1rem; /* Add some padding below the header */
+            margin-bottom: 0.75rem; /* Add some margin below the header */
+            border-bottom: 1px solid #4a5568; /* Add a subtle border below the header */
+        }
+        .collapsible-content.collapsed + .collapsible-header {
+            border-bottom: none; /* Remove border when collapsed */
+        }
+        .collapsible-content:not(.collapsed) + .collapsible-header {
+            margin-bottom: 1rem; /* Restore margin when open */
+        }
     </style>
 </head>
 <body class="text-gray-300"> <!-- Changed to text-gray-300 for general text on dark background -->
@@ -2544,150 +2595,174 @@
             </header>
             <main class="p-4 sm:p-6">
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="map-pin" class="w-5 h-5 text-red-400"></i>Controlli Mappa
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label for="map-city-select" class="block text-sm font-medium text-gray-400 mb-1">Seleziona Città</label>
-                            <select id="map-city-select" class="form-input w-full p-2 border rounded-md text-sm">
-                                <!-- Populated by JS -->
-                            </select>
-                        </div>
-                        <div>
-                            <label for="radius-input" class="block text-sm font-medium text-gray-400 mb-1">Raggio (km) per Posizione Attuale</label>
-                            <input type="number" id="radius-input" class="form-input w-full p-2 border rounded-md text-sm" value="5" min="1">
-                        </div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="map-controls-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="map-pin" class="w-5 h-5 text-red-400"></i>Controlli Mappa
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                     </div>
-                    <button id="get-location-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
-                        <i data-lucide="locate-fixed" class="w-5 h-5"></i>
-                        Ottieni Posizione Attuale
-                    </button>
-                    <div class="mt-4">
-                        <label for="search-query-input" class="block text-sm font-medium text-gray-400 mb-1">Cerca un luogo</label>
-                        <input type="text" id="search-query-input" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Ristorante ramen, Tempio, Parco...">
-                        <button id="search-places-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
-                            <i data-lucide="search" class="w-5 h-5"></i>
-                            Cerca Luoghi
+                    <div id="map-controls-content" class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="map-city-select" class="block text-sm font-medium text-gray-400 mb-1">Seleziona Città</label>
+                                <select id="map-city-select" class="form-input w-full p-2 border rounded-md text-sm">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div>
+                                <label for="radius-input" class="block text-sm font-medium text-gray-400 mb-1">Raggio (km) per Posizione Attuale</label>
+                                <input type="number" id="radius-input" class="form-input w-full p-2 border rounded-md text-sm" value="5" min="1">
+                            </div>
+                        </div>
+                        <button id="get-location-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                            <i data-lucide="locate-fixed" class="w-5 h-5"></i>
+                            Ottieni Posizione Attuale
                         </button>
-                        <button id="clear-search-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="eraser" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Pulisci Ricerca</span>
-                        </button>
+                        <div class="mt-4">
+                            <label for="search-query-input" class="block text-sm font-medium text-gray-400 mb-1">Cerca un luogo</label>
+                            <input type="text" id="search-query-input" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Ristorante ramen, Tempio, Parco...">
+                            <button id="search-places-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                                <i data-lucide="search" class="w-5 h-5"></i>
+                                Cerca Luoghi
+                            </button>
+                            <button id="clear-search-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                                <i data-lucide="eraser" class="w-4 h-4"></i>
+                                <span class="hidden sm:inline">Pulisci Ricerca</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.1s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Mappa
-                    </h3>
-                    <div id="map"></div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="map-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Mappa
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                    </div>
+                    <div id="map-content" class="collapsible-content">
+                        <div id="map"></div>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.2s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Risultati Ricerca
-                    </h3>
-                    <ul id="search-results-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                        <li class="text-gray-400">Nessun risultato di ricerca.</li>
-                    </ul>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="search-results-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Risultati Ricerca
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                    </div>
+                    <div id="search-results-content" class="collapsible-content">
+                        <ul id="search-results-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                            <li class="text-gray-400">Nessun risultato di ricerca.</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.3s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label for="pinned-place-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Luogo</label>
-                            <input type="text" id="pinned-place-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Tempio Senso-ji">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="pinned-place-lat" class="block text-sm font-medium text-gray-400 mb-1">Latitudine</label>
-                                <input type="number" id="pinned-place-lat" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Latitudine">
-                            </div>
-                            <div>
-                                <label for="pinned-place-lng" class="block text-sm font-medium text-gray-400 mb-1">Longitudine</label>
-                                <input type="number" id="pinned-place-lng" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Longitudine">
-                            </div>
-                        </div>
-                        <div>
-                            <label for="pinned-place-date" class="block text-sm font-medium text-gray-400 mb-1">Data Prenotazione (Opz.)</label>
-                            <input type="date" id="pinned-place-date" class="form-input w-full p-2 border rounded-md text-sm">
-                        </div>
-                        <div>
-                            <label for="pinned-place-time" class="block text-sm font-medium text-gray-400 mb-1">Ora Prenotazione (Opz.)</label>
-                            <input type="time" id="pinned-place-time" class="form-input w-full p-2 border rounded-md text-sm">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-tag" class="block text-sm font-medium text-gray-400 mb-1">Tag</label>
-                            <select id="pinned-place-tag" class="form-input w-full p-2 border rounded-md text-sm">
-                                <option>Attrazione</option>
-                                <option>Ristorante</option>
-                                <option>Trasporto</option>
-                                <option>Alloggio</option>
-                                <option>Altro</option>
-                            </select>
-                        </div>
-                        <div class="md:col-span-2 flex items-center gap-2 mt-2">
-                            <input type="checkbox" id="pinned-place-is-booked" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer">
-                            <label for="pinned-place-is-booked" class="text-sm font-medium text-gray-400">Prenotato</label>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-booking-file-link" class="block text-sm font-medium text-gray-400 mb-1">Link file prenotazione (Drive, Opz.)</label>
-                            <input type="url" id="pinned-place-booking-file-link" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. https://drive.google.com/link-al-file">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
-                            <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
-                        </div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="add-pinned-place-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                     </div>
-                    <button id="save-pinned-place-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
-                        Salva Luogo Pinnato
-                    </button>
-                    <button id="clear-pinned-place-form-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                        <i data-lucide="eraser" class="w-4 h-4"></i>
-                        <span class="hidden sm:inline">Pulisci Modulo</span>
-                    </button>
+                    <div id="add-pinned-place-content" class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="pinned-place-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Luogo</label>
+                                <input type="text" id="pinned-place-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Tempio Senso-ji">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="pinned-place-lat" class="block text-sm font-medium text-gray-400 mb-1">Latitudine</label>
+                                    <input type="number" id="pinned-place-lat" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Latitudine">
+                                </div>
+                                <div>
+                                    <label for="pinned-place-lng" class="block text-sm font-medium text-gray-400 mb-1">Longitudine</label>
+                                    <input type="number" id="pinned-place-lng" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Longitudine">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="pinned-place-date" class="block text-sm font-medium text-gray-400 mb-1">Data Prenotazione (Opz.)</label>
+                                <input type="date" id="pinned-place-date" class="form-input w-full p-2 border rounded-md text-sm">
+                            </div>
+                            <div>
+                                <label for="pinned-place-time" class="block text-sm font-medium text-gray-400 mb-1">Ora Prenotazione (Opz.)</label>
+                                <input type="time" id="pinned-place-time" class="form-input w-full p-2 border rounded-md text-sm">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-tag" class="block text-sm font-medium text-gray-400 mb-1">Tag</label>
+                                <select id="pinned-place-tag" class="form-input w-full p-2 border rounded-md text-sm">
+                                    <option>Attrazione</option>
+                                    <option>Ristorante</option>
+                                    <option>Trasporto</option>
+                                    <option>Alloggio</option>
+                                    <option>Altro</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2 flex items-center gap-2 mt-2">
+                                <input type="checkbox" id="pinned-place-is-booked" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer">
+                                <label for="pinned-place-is-booked" class="text-sm font-medium text-gray-400">Prenotato</label>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-booking-file-link" class="block text-sm font-medium text-gray-400 mb-1">Link file prenotazione (Drive, Opz.)</label>
+                                <input type="url" id="pinned-place-booking-file-link" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. https://drive.google.com/link-al-file">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
+                                <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
+                            </div>
+                        </div>
+                        <button id="save-pinned-place-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
+                            Salva Luogo Pinnato
+                        </button>
+                        <button id="clear-pinned-place-form-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="eraser" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Pulisci Modulo</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.4s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
-                    </h3>
-                    <!-- Filter buttons for Pinned Places -->
-                    <div class="mb-4">
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Tag:</h4>
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            <button id="filter-tag-tutti-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
-                            <button id="filter-tag-attrazione-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Attrazione</button>
-                            <button id="filter-tag-ristorante-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Ristorante</button>
-                            <button id="filter-tag-trasporto-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Trasporto</button>
-                            <button id="filter-tag-alloggio-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Alloggio</button>
-                            <button id="filter-tag-altro-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Altro</button>
-                        </div>
-
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Stato Prenotazione:</h4>
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            <button id="filter-booked-tutti-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
-                            <button id="filter-booked-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Prenotati</button>
-                            <button id="filter-booked-non-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Non Prenotati</button>
-                        </div>
-
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Giorno di Prenotazione:</h4>
-                        <div class="flex gap-2">
-                            <input type="date" id="filter-pinned-date-input" class="form-input flex-1 p-2 border rounded-md text-sm">
-                            <button id="clear-pinned-date-filter-btn" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 text-sm flex items-center justify-center gap-1">
-                                <i data-lucide="x" class="w-4 h-4"></i>
-                                <span class="hidden sm:inline">Cancella</span>
-                            </button>
-                        </div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="pinned-places-list-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                     </div>
-                    
-                    <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
-                        <!-- Pinned places will be loaded here by JS -->
-                    </ul>
+                    <div id="pinned-places-list-content" class="collapsible-content">
+                        <!-- Filter buttons for Pinned Places -->
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Tag:</h4>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <button id="filter-tag-tutti-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                                <button id="filter-tag-attrazione-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Attrazione</button>
+                                <button id="filter-tag-ristorante-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Ristorante</button>
+                                <button id="filter-tag-trasporto-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Trasporto</button>
+                                <button id="filter-tag-alloggio-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Altro</button>
+                            </div>
+
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Stato Prenotazione:</h4>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <button id="filter-booked-tutti-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                                <button id="filter-booked-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Prenotati</button>
+                                <button id="filter-booked-non-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Non Prenotati</button>
+                            </div>
+
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Giorno di Prenotazione:</h4>
+                            <div class="flex gap-2">
+                                <input type="date" id="filter-pinned-date-input" class="form-input flex-1 p-2 border rounded-md text-sm">
+                                <button id="clear-pinned-date-filter-btn" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 text-sm flex items-center justify-center gap-1">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                    <span class="hidden sm:inline">Cancella</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                            <!-- Pinned places will be loaded here by JS -->
+                        </ul>
+                    </div>
                 </div>
             </main>
         </div>
