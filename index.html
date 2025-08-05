@@ -1282,22 +1282,38 @@
                     places.forEach(place => {
                         const li = document.createElement('li');
                         li.className = 'bg-gray-700/30 p-3 rounded-lg text-sm mb-2 flex justify-between items-center hover-shadow-effect';
+                        li.dataset.id = place.id; // Add data-id for editing
+                        li.dataset.editing = 'false'; // Track editing state
+
                         li.innerHTML = `
-                            <div>
+                            <div class="flex flex-col flex-grow" id="place-display-${place.id}">
                                 <span class="font-semibold text-white">${place.name}</span>
                                 <span class="text-gray-400 block text-xs">Lat: ${place.latitude.toFixed(4)}, Lng: ${place.longitude.toFixed(4)}</span>
                                 <span class="text-red-300 text-xs block">${place.tag}</span>
                                 ${place.reservationDate ? `<span class="text-blue-300 text-xs block">Prenotazione: ${place.reservationDate} ${place.reservationTime || ''}</span>` : ''}
                                 ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
+                                ${place.mapUrl ? `<a href="${place.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Vedi su Mappa</a>` : ''}
                             </div>
-                            <button data-id="${place.id}" class="delete-pinned-place-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            <div id="place-edit-${place.id}" class="hidden flex-grow ml-3">
+                                <!-- Edit form will go here -->
+                            </div>
+                            <div class="flex items-center">
+                                <button data-id="${place.id}" class="edit-pinned-place-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button data-id="${place.id}" class="delete-pinned-place-btn ml-2 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         `;
                         pinnedPlacesListEl.appendChild(li);
 
                         // Add marker to map
                         addMapMarker(place.latitude, place.longitude, place.name, place.notes);
+                    });
+                     // Add event listeners for edit and delete buttons after rendering
+                    pinnedPlacesListEl.querySelectorAll('.edit-pinned-place-btn').forEach(button => {
+                        button.addEventListener('click', (e) => editPinnedPlace(e.currentTarget.dataset.id, places)); // Pass places array
                     });
                 }
                 lucide.createIcons();
@@ -1353,6 +1369,7 @@
             const notes = notesInput.value.trim();
 
             if (name && !isNaN(latitude) && !isNaN(longitude) && currentMapCity) {
+                const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`; // Generate map URL
                 await addDoc(collection(db, "pinned-places"), {
                     city: currentMapCity,
                     name: name,
@@ -1362,12 +1379,13 @@
                     reservationTime: reservationTime || null,
                     tag: tag,
                     notes: notes || null,
+                    mapUrl: mapUrl, // Save the map URL
                     createdAt: new Date()
                 });
                 clearPinnedPlaceForm(); // Clear form after saving
                 showCustomAlert('Luogo pinnato aggiunto con successo!');
             } else {
-                showCustomAlert('Per favorire, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine) e seleziona una città.');
+                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine) e seleziona una città.');
             }
         }
 
@@ -1483,6 +1501,7 @@
                             <div class="text-gray-300 text-xs">${res.tag}</div>
                             ${res.reservationTime ? `<div class="text-blue-300 text-xs">Ora: ${res.reservationTime}</div>` : ''}
                             ${res.notes ? `<p class="text-gray-400 text-xs mt-1">${res.notes}</p>` : ''}
+                            ${res.mapUrl ? `<a href="${res.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Vedi su Mappa</a>` : ''}
                         `;
                         reservationsListEl.appendChild(li);
                     });
@@ -1513,6 +1532,105 @@
             document.getElementById('pinned-place-time').value = '';
             document.getElementById('pinned-place-tag').value = 'Attrazione';
             document.getElementById('pinned-place-notes').value = '';
+        }
+
+        // Function to handle editing a pinned place
+        function editPinnedPlace(placeId, places) {
+            const placeToEdit = places.find(place => place.id === placeId);
+            if (!placeToEdit) return;
+
+            const listItem = document.querySelector(`li[data-id="${placeId}"]`);
+            const displayDiv = listItem.querySelector(`#place-display-${placeId}`);
+            const editDiv = listItem.querySelector(`#place-edit-${placeId}`);
+            const editButton = listItem.querySelector(`.edit-pinned-place-btn`);
+            const deleteButton = listItem.querySelector(`.delete-pinned-place-btn`);
+
+            if (listItem.dataset.editing === 'true') {
+                return; // Already in editing mode
+            }
+
+            listItem.dataset.editing = 'true';
+            displayDiv.classList.add('hidden');
+            editDiv.classList.remove('hidden');
+            editButton.classList.add('hidden'); // Hide edit button
+            deleteButton.classList.add('hidden'); // Hide delete button during edit
+
+            editDiv.innerHTML = `
+                <div class="flex flex-col gap-2 w-full">
+                    <input type="text" id="edit-pinned-name-${placeId}" class="form-input p-2 rounded-md text-sm" value="${placeToEdit.name}">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="edit-pinned-lat-${placeId}" class="form-input p-2 rounded-md text-sm" value="${placeToEdit.latitude}" step="0.000001">
+                        <input type="number" id="edit-pinned-lng-${placeId}" class="form-input p-2 rounded-md text-sm" value="${placeToEdit.longitude}" step="0.000001">
+                    </div>
+                    <input type="date" id="edit-pinned-date-${placeId}" class="form-input p-2 rounded-md text-sm" value="${placeToEdit.reservationDate || ''}">
+                    <input type="time" id="edit-pinned-time-${placeId}" class="form-input p-2 rounded-md text-sm" value="${placeToEdit.reservationTime || ''}">
+                    <select id="edit-pinned-tag-${placeId}" class="form-input p-2 rounded-md text-sm">
+                        ${['Attrazione', 'Ristorante', 'Trasporto', 'Alloggio', 'Altro'].map(tag => `<option value="${tag}" ${placeToEdit.tag === tag ? 'selected' : ''}>${tag}</option>`).join('')}
+                    </select>
+                    <textarea id="edit-pinned-notes-${placeId}" rows="2" class="form-input w-full p-2 border rounded-md text-sm">${placeToEdit.notes || ''}</textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button data-id="${placeId}" class="save-edit-pinned-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Salva</button>
+                        <button data-id="${placeId}" class="cancel-edit-pinned-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200">Annulla</button>
+                    </div>
+                </div>
+            `;
+
+            listItem.querySelector(`.save-edit-pinned-btn`).onclick = () => saveEditedPinnedPlace(placeId);
+            listItem.querySelector(`.cancel-edit-pinned-btn`).onclick = () => cancelEditPinnedPlace(placeId);
+            lucide.createIcons();
+        }
+
+        async function saveEditedPinnedPlace(placeId) {
+            const nameInput = document.getElementById(`edit-pinned-name-${placeId}`);
+            const latInput = document.getElementById(`edit-pinned-lat-${placeId}`);
+            const lngInput = document.getElementById(`edit-pinned-lng-${placeId}`);
+            const dateInput = document.getElementById(`edit-pinned-date-${placeId}`);
+            const timeInput = document.getElementById(`edit-pinned-time-${placeId}`);
+            const tagSelect = document.getElementById(`edit-pinned-tag-${placeId}`);
+            const notesInput = document.getElementById(`edit-pinned-notes-${placeId}`);
+
+            const newName = nameInput.value.trim();
+            const newLatitude = parseFloat(latInput.value);
+            const newLongitude = parseFloat(lngInput.value);
+            const newReservationDate = dateInput.value.trim();
+            const newReservationTime = timeInput.value.trim();
+            const newTag = tagSelect.value;
+            const newNotes = notesInput.value.trim();
+
+            if (newName && !isNaN(newLatitude) && !isNaN(newLongitude)) {
+                const placeRef = doc(db, "pinned-places", placeId);
+                const newMapUrl = `https://www.google.com/maps/search/?api=1&query=${newLatitude},${newLongitude}`;
+
+                await updateDoc(placeRef, {
+                    name: newName,
+                    latitude: newLatitude,
+                    longitude: newLongitude,
+                    reservationDate: newReservationDate || null,
+                    reservationTime: newReservationTime || null,
+                    tag: newTag,
+                    notes: newNotes || null,
+                    mapUrl: newMapUrl // Update map URL
+                });
+                cancelEditPinnedPlace(placeId); // Exit edit mode
+                showCustomAlert('Luogo pinnato aggiornato con successo!');
+            } else {
+                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine).');
+            }
+        }
+
+        function cancelEditPinnedPlace(placeId) {
+            const listItem = document.querySelector(`li[data-id="${placeId}"]`);
+            const displayDiv = listItem.querySelector(`#place-display-${placeId}`);
+            const editDiv = listItem.querySelector(`#place-edit-${placeId}`);
+            const editButton = listItem.querySelector(`.edit-pinned-place-btn`);
+            const deleteButton = listItem.querySelector(`.delete-pinned-place-btn`);
+
+            listItem.dataset.editing = 'false';
+            displayDiv.classList.remove('hidden');
+            editDiv.classList.add('hidden');
+            editButton.classList.remove('hidden');
+            deleteButton.classList.remove('hidden');
+            editDiv.innerHTML = ''; // Clear edit form content
         }
 
 
@@ -2098,14 +2216,14 @@
                                 <span class="hidden sm:inline">Meteo attuale</span>
                             </button></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Planning</h3><div id="travel-events-widget" class="space-y-4"></div></div>
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-red-400"></i>Storico Annotazioni</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-red-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
                         
                         <!-- Nuova sezione: Prenotazioni di oggi -->
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
                             <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                                <i data-lucide="calendar-check" class="w-5 h-5 text-blue-400"></i>Le tue prenotazioni
+                                <i data-lucide="calendar-check" class="w-5 h-5 text-blue-400"></i>Prenotazioni di oggi
                             </h3>
                             <ul id="todays-reservations-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
                                 <!-- Le prenotazioni verranno caricate qui da JS -->
@@ -2113,13 +2231,13 @@
                         </div>
 
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Lo Zaino di Oggi</h3><div id="todays-backpack-widget" class="space-y-2"></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Comunica</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
                             <i data-lucide="keyboard" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Tastiera: Italiano</span>
                             </button>
                         <button id="clear-translation-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
                             <i data-lucide="eraser" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Clean</span>
+                            <span class="hidden sm:inline">Pulisci</span>
                         </button>
                         </div>
                     </div>
