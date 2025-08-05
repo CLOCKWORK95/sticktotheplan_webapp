@@ -14,7 +14,7 @@
     <script type="module">
         // Importa le funzioni necessarie dai moduli Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // =================================================================================
@@ -42,15 +42,18 @@
         let currentDayUnsubscribeNotes = null;
         let currentDayUnsubscribeExpenses = null;
         let itineraryUnsubscribe = null;
+        let backpackUnsubscribe = null; // New unsubscribe for backpack
         let clockInterval = null;
         let italianClockInterval = null; // New interval for Italian time
         let currentActiveDate = null; // Global variable to store the currently active date
+        let currentBackpackUser = 'pino'; // Default backpack user
 
         // Elementi UI
         const loginContainer = document.getElementById('login-container');
         const appContainer = document.getElementById('app-container');
         const homeView = document.getElementById('home-view');
         const dayDetailView = document.getElementById('day-detail-view');
+        const backpackView = document.getElementById('backpack-view'); // New backpack view
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const logoutButton = document.getElementById('logout-btn');
@@ -70,6 +73,7 @@
                 if (itineraryUnsubscribe) itineraryUnsubscribe();
                 if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
                 if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
+                if (backpackUnsubscribe) backpackUnsubscribe(); // Clear backpack listener
                 if(clockInterval) clearInterval(clockInterval);
                 if(italianClockInterval) clearInterval(italianClockInterval); // Clear Italian clock interval
             }
@@ -88,23 +92,48 @@
         });
 
         logoutButton.addEventListener('click', () => signOut(auth));
-        backToHomeButton.addEventListener('click', () => navigateTo('home'));
+        
+        // Navigation buttons in the fixed header
+        document.getElementById('nav-itinerary-btn').addEventListener('click', () => navigateTo('home'));
+        document.getElementById('nav-backpack-btn').addEventListener('click', () => {
+            navigateTo('backpack');
+            loadAndDisplayBackpackItems(); // Load backpack items when navigating to backpack view
+        });
 
         function navigateTo(viewName) {
-            // Aggiungi classi per la transizione di opacità
-            const currentView = viewName === 'home' ? dayDetailView : homeView;
-            const nextView = viewName === 'home' ? homeView : dayDetailView;
+            const views = {
+                'home': homeView,
+                'day-detail': dayDetailView,
+                'backpack': backpackView
+            };
 
-            currentView.classList.add('opacity-0', 'pointer-events-none');
-            currentView.classList.remove('opacity-100');
+            // Nascondi tutte le viste con transizione
+            Object.values(views).forEach(view => {
+                view.classList.add('opacity-0', 'pointer-events-none');
+                view.classList.remove('opacity-100');
+            });
 
             setTimeout(() => {
-                currentView.classList.add('hidden');
-                nextView.classList.remove('hidden');
-                // Forza il reflow per assicurare che la transizione venga applicata
-                void nextView.offsetWidth; 
-                nextView.classList.remove('opacity-0', 'pointer-events-none');
-                nextView.classList.add('opacity-100');
+                // Nascondi fisicamente tutte le viste
+                Object.values(views).forEach(view => view.classList.add('hidden'));
+
+                // Mostra la vista desiderata e avvia la transizione di entrata
+                const nextView = views[viewName];
+                if (nextView) {
+                    nextView.classList.remove('hidden');
+                    // Forza il reflow per assicurare che la transizione venga applicata
+                    void nextView.offsetWidth; 
+                    nextView.classList.remove('opacity-0', 'pointer-events-none');
+                    nextView.classList.add('opacity-100');
+
+                    // Trigger fade-in-up animation for content within the new view
+                    nextView.querySelectorAll('.fade-in-up').forEach((el, index) => {
+                        el.style.animationDelay = `${index * 0.1}s`;
+                        el.classList.remove('fade-in-up'); // Rimuovi per permettere di riapplicare
+                        void el.offsetWidth; // Trigger reflow
+                        el.classList.add('fade-in-up');
+                    });
+                }
             }, 300); // Durata della transizione CSS
         }
 
@@ -632,6 +661,116 @@
             document.getElementById('translate-output-jp').value = '';
         }
 
+        // Funzioni per la sezione Zaino
+        async function loadAndDisplayBackpackItems() {
+            const backpackListEl = document.getElementById('backpack-items-list');
+            backpackListEl.innerHTML = '<li>Caricamento...</li>';
+            // Usa la collezione dinamica in base a currentBackpackUser
+            const backpackQuery = query(collection(db, "backpacks", currentBackpackUser, "items")); 
+            
+            if (backpackUnsubscribe) backpackUnsubscribe(); // Unsubscribe from previous listener
+
+            backpackUnsubscribe = onSnapshot(backpackQuery, (snapshot) => {
+                backpackListEl.innerHTML = '';
+                let items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+
+                if (items.length === 0) {
+                    backpackListEl.innerHTML = '<li class="text-gray-400">Nessun oggetto nello zaino.</li>';
+                } else {
+                    items.forEach(item => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center justify-between bg-gray-700/30 p-3 rounded-lg text-sm mb-2 hover-shadow-effect';
+                        li.innerHTML = `
+                            <div class="flex items-center flex-grow">
+                                <input type="checkbox" data-id="${item.id}" ${item.inBackpack ? 'checked' : ''} class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer transition-colors duration-200">
+                                <div class="ml-3">
+                                    <span class="font-semibold text-white">${item.name}</span>
+                                    <span class="text-gray-400"> (${item.quantity})</span>
+                                    <span class="text-indigo-300 text-xs block">${item.type}</span>
+                                </div>
+                            </div>
+                            <button data-id="${item.id}" class="delete-item-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        `;
+                        backpackListEl.appendChild(li);
+                    });
+
+                    // Add event listeners for checkboxes and delete buttons after rendering
+                    backpackListEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                        checkbox.addEventListener('change', (e) => toggleBackpackItem(e.target.dataset.id, e.target.checked));
+                    });
+                    backpackListEl.querySelectorAll('.delete-item-btn').forEach(button => {
+                        button.addEventListener('click', (e) => deleteBackpackItem(e.currentTarget.dataset.id));
+                    });
+                }
+                lucide.createIcons();
+            });
+        }
+
+        async function saveBackpackItem() {
+            const nameInput = document.getElementById('backpack-item-name');
+            const typeSelect = document.getElementById('backpack-item-type');
+            const quantityInput = document.getElementById('backpack-item-quantity');
+
+            const name = nameInput.value.trim();
+            const type = typeSelect.value;
+            const quantity = parseInt(quantityInput.value, 10);
+
+            if (name && type && !isNaN(quantity) && quantity > 0) {
+                // Usa la collezione dinamica in base a currentBackpackUser
+                await addDoc(collection(db, "backpacks", currentBackpackUser, "items"), {
+                    name: name,
+                    type: type,
+                    quantity: quantity,
+                    inBackpack: false, // Default to not in backpack
+                    createdAt: new Date()
+                });
+                nameInput.value = '';
+                quantityInput.value = '1'; // Reset quantity to 1
+                typeSelect.value = 'Abbigliamento'; // Reset type
+            } else {
+                console.warn("Dati oggetto zaino non validi.");
+            }
+        }
+
+        async function toggleBackpackItem(itemId, inBackpackStatus) {
+            // Usa la collezione dinamica in base a currentBackpackUser
+            const itemRef = doc(db, "backpacks", currentBackpackUser, "items", itemId);
+            await updateDoc(itemRef, {
+                inBackpack: inBackpackStatus
+            });
+        }
+
+        async function deleteBackpackItem(itemId) {
+            // Implementa una conferma utente per la cancellazione
+            // NOTA: Per un'applicazione reale, dovresti implementare un modal di conferma personalizzato
+            // invece di window.confirm() a causa delle restrizioni degli iframe.
+            if (confirm("Sei sicuro di voler eliminare questo oggetto?")) {
+                // Usa la collezione dinamica in base a currentBackpackUser
+                const itemRef = doc(db, "backpacks", currentBackpackUser, "items", itemId);
+                await deleteDoc(itemRef);
+            }
+        }
+
+        // Funzione per cambiare lo zaino attivo
+        function switchBackpack(user) {
+            currentBackpackUser = user;
+            // Rimuovi la classe di evidenziazione da entrambi i pulsanti
+            document.getElementById('select-pino-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            document.getElementById('select-pina-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+
+            // Aggiungi la classe di evidenziazione al pulsante selezionato
+            const selectedButton = document.getElementById(`select-${user}-backpack-btn`);
+            selectedButton.classList.add('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+
+            document.getElementById('current-backpack-name').textContent = user === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+            loadAndDisplayBackpackItems(); // Ricarica gli oggetti per il nuovo zaino
+        }
+
+
         // Inizializza la tastiera in italiano all'avvio
         document.addEventListener('DOMContentLoaded', () => {
             translateInputIt.lang = 'it';
@@ -640,13 +779,26 @@
             // translateInputIt.inputmode = 'text';
             // Imposta il testo iniziale del pulsante
             document.getElementById('toggle-keyboard-btn').innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span>';
+            
+            // Aggiungi listener per il pulsante "Aggiungi Oggetto" dello zaino
+            document.getElementById('add-backpack-item-btn').onclick = saveBackpackItem;
+
+            // Inizializza i pulsanti per la selezione dello zaino
+            document.getElementById('select-pino-backpack-btn').onclick = () => switchBackpack('pino');
+            document.getElementById('select-pina-backpack-btn').onclick = () => switchBackpack('pina');
+            
+            // Imposta il nome dello zaino iniziale e seleziona il pulsante di Pino
+            document.getElementById('current-backpack-name').textContent = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+            document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+
+
             lucide.createIcons();
         });
 
     </script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #111827; }
+        body { font-family: 'Inter', sans-serif; background-color: #111827; padding-top: 64px; } /* Changed margin-top to padding-top */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
@@ -714,19 +866,33 @@
     </div>
 
     <div id="app-container" class="w-full h-full bg-gray-900 hidden">
+        <!-- Fixed Navigation Bar -->
+        <nav class="fixed top-0 left-0 right-0 bg-gray-800 p-4 border-b border-gray-700 z-50 flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-4">
+                <button id="nav-itinerary-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="list-checks" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Itinerario</span>
+                </button>
+                <button id="nav-backpack-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="backpack" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Zaino</span>
+                </button>
+            </div>
+            <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">Logout</span>
+            </button>
+        </nav>
+
         <!-- Home View -->
         <div id="home-view" class="view-transition opacity-0">
-            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center flex-col sm:flex-row">
+            <header class="p-4 sm:p-6 flex justify-between items-center flex-col sm:flex-row">
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-bold text-white text-center sm:text-left">Itinerario di Viaggio</h1>
                     <p class="text-gray-400 text-center sm:text-left">Giappone 2025</p>
                 </div>
-                <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2 mt-4 sm:mt-0">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Logout</span>
-                </button>
             </header>
-            <main class="p-4 sm:p-6">
+            <main class="p-4 sm:p-6"> <!-- Removed pt-16, handled by body padding -->
                 <!-- Immagine di presentazione per la Home Page -->
                 <img id="home-title-image" src="" alt="Immagine di presentazione" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
 
@@ -750,16 +916,16 @@
 
         <!-- Day Detail View -->
         <div id="day-detail-view" class="view-transition opacity-0 hidden">
-            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center flex-col sm:flex-row">
+            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center flex-col sm:flex-row relative">
                 <button id="back-to-home-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="arrow-left" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Itinerario</span>
                 </button>
-                <div class="flex-grow flex items-center justify-center relative">
+                <div class="flex-grow flex items-center justify-center relative my-4 sm:my-0">
                     <button id="prev-day-btn" class="absolute left-0 p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="chevron-left" class="w-6 h-6"></i>
                     </button>
-                    <div class="text-center">
+                    <div class="text-center mx-10"> <!-- Aggiunto mx-10 per spazio frecce -->
                         <h2 id="location" class="text-3xl font-bold text-white"></h2>
                         <p id="date" class="text-indigo-400"></p>
                     </div>
@@ -778,22 +944,20 @@
                     </div>
                 </div>
             </header>
-            <main class="p-4 sm:p-6">
+            <main class="p-4 sm:p-6"> <!-- Removed pt-16, handled by body padding -->
                 <!-- Immagine di presentazione per la pagina di dettaglio del giorno -->
                 <img id="day-detail-title-image" src="" alt="Immagine del luogo" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
 
-                <!-- Rimosso il div con location e date, ora sono nella header -->
-
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo</h3><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo</h3><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
                             <i data-lucide="map-pin" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Meteo attuale</span>
                         </button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up" style="animation-delay: 0.1s;"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-indigo-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up" style="animation-delay: 0.2s;"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-indigo-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up" style="animation-delay: 0.3s;"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-indigo-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up" style="animation-delay: 0.4s;"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-indigo-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up" style="animation-delay: 0.5s;"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-indigo-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-indigo-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-indigo-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-indigo-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-indigo-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-indigo-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
                         <i data-lucide="keyboard" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Tastiera: Italiano</span>
                         </button>
@@ -802,6 +966,66 @@
                         <span class="hidden sm:inline">Pulisci</span>
                     </button>
                     </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Backpack View (New) -->
+        <div id="backpack-view" class="view-transition opacity-0 hidden">
+            <header class="p-4 sm:p-6 flex justify-between items-center flex-col sm:flex-row">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white text-center sm:text-left">Il Mio Zaino</h1>
+                    <p class="text-gray-400 text-center sm:text-left">Gestisci gli oggetti per il viaggio</p>
+                </div>
+            </header>
+            <main class="p-4 sm:p-6"> <!-- Removed pt-16, handled by body padding -->
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="users" class="w-5 h-5 text-purple-400"></i>Seleziona Zaino: <span id="current-backpack-name" class="ml-2">Zaino di Pino</span>
+                    </h3>
+                    <div class="flex gap-4 mb-4">
+                        <button id="select-pino-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pino</button>
+                        <button id="select-pina-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pina</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.1s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="package" class="w-5 h-5 text-purple-400"></i>Aggiungi Nuovo Oggetto
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label for="backpack-item-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Oggetto</label>
+                            <input type="text" id="backpack-item-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Adattatore universale">
+                        </div>
+                        <div>
+                            <label for="backpack-item-type" class="block text-sm font-medium text-gray-400 mb-1">Tipologia</label>
+                            <select id="backpack-item-type" class="form-input w-full p-2 border rounded-md text-sm">
+                                <option>Abbigliamento</option>
+                                <option>Elettronica</option>
+                                <option>Igiene Personale</option>
+                                <option>Documenti</option>
+                                <option>Farmaci</option>
+                                <option>Varie</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="backpack-item-quantity" class="block text-sm font-medium text-gray-400 mb-1">Quantità</label>
+                            <input type="number" id="backpack-item-quantity" class="form-input w-full p-2 border rounded-md text-sm" value="1" min="1">
+                        </div>
+                    </div>
+                    <button id="add-backpack-item-btn" class="mt-3 w-full bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-md transition-colors duration-200">
+                        Aggiungi Oggetto
+                    </button>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.2s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="list-todo" class="w-5 h-5 text-purple-400"></i>Lista Oggetti
+                    </h3>
+                    <ul id="backpack-items-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        <!-- Items will be loaded here by JS -->
+                    </ul>
                 </div>
             </main>
         </div>
