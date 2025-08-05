@@ -148,6 +148,20 @@
             "default": "images/giappone.jpg" // Immagine predefinita
         };
 
+        // Mappa delle coordinate per le città (per Open-Meteo)
+        const cityCoordinates = {
+            "Tokyo": { latitude: 35.6895, longitude: 139.6917 },
+            "Ryokan (Takaragawa Onsen)": { latitude: 36.8528, longitude: 139.0287 }, // Coordinate approssimative per Takaragawa Onsen
+            "Kanazawa": { latitude: 36.5612, longitude: 136.6562 },
+            "Shirakawa-go": { latitude: 36.2575, longitude: 136.8973 },
+            "Kyoto": { latitude: 35.0116, longitude: 135.7681 },
+            "Osaka": { latitude: 34.6937, longitude: 135.5022 },
+            "Nara": { latitude: 34.6851, longitude: 135.8048 }, // Coordinate per Nara
+            "Volo di Ritorno": { latitude: 0, longitude: 0 }, // Placeholder, non useremo il meteo per questo
+            "default": { latitude: 35.6895, longitude: 139.6917 } // Tokyo come default
+        };
+
+
         function renderHomeView() {
             const itineraryTableBody = document.getElementById('itinerary-table-body');
             itineraryTableBody.innerHTML = '';
@@ -230,7 +244,11 @@
                 dayDetailImageEl.alt = `Immagine di ${dayData.location}`;
             }
 
-            getWeather(dayData.location.split('/')[0].trim());
+            // Ottieni le coordinate dalla mappa cityCoordinates
+            const cityKey = dayData.location.split('/')[0].trim();
+            const coords = cityCoordinates[cityKey] || cityCoordinates["default"];
+            getWeather(coords.latitude, coords.longitude); // Passa lat e lon
+
             updateClock('Asia/Tokyo', 'local-time');
             updateClock('Europe/Rome', 'italian-local-time'); // Aggiorna l'orario italiano
 
@@ -264,7 +282,7 @@
             lucide.createIcons();
         }
         
-        async function getWeather(city) {
+        async function getWeather(latitude, longitude) {
             const weatherWidget = document.getElementById('weather-widget');
             weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento...</div>`;
             
@@ -273,7 +291,7 @@
                 const response = await fetch('/.netlify/functions/getWeather', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ city: city })
+                    body: JSON.stringify({ latitude: latitude, longitude: longitude }) // Passa lat e lon
                 });
 
                 if (!response.ok) {
@@ -283,12 +301,67 @@
                 }
                 const data = await response.json();
                 
-                weatherWidget.innerHTML = `<div class="flex items-center gap-4"><img src="https://openweathermap.org/img/wn/${data.icon}@2x.png" alt="weather icon" class="w-16 h-16 -my-2"><div><div class="text-3xl font-bold text-white">${Math.round(data.temp)}°C</div><div class="text-gray-300 capitalize">${data.description}</div></div><div class="text-sm text-gray-400"><div>Umidità: ${data.humidity}%</div><div>Vento: ${data.wind.speed} m/s</div></div></div>`;
+                // Mappa i codici icona di Open-Meteo alle icone di OpenWeatherMap o a Lucide Icons se preferisci
+                // Per semplicità, useremo un mapping di base o potresti voler integrare un set di icone meteo
+                const weatherIcon = getWeatherIcon(data.weathercode); // Funzione helper per mappare il codice meteo all'icona
+                
+                weatherWidget.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <img src="${weatherIcon}" alt="weather icon" class="w-16 h-16 -my-2">
+                        <div>
+                            <div class="text-3xl font-bold text-white">${Math.round(data.temperature)}°C</div>
+                            <div class="text-gray-300 capitalize">${data.description}</div>
+                        </div>
+                        <div class="text-sm text-gray-400">
+                            <div>Umidità: ${data.relativehumidity_2m}%</div>
+                            <div>Vento: ${data.windspeed_10m} km/h</div>
+                        </div>
+                    </div>
+                `;
             } catch (error) {
                 console.error("Weather error:", error);
                 weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile. ${error.message}</div>`;
             }
         }
+
+        // Funzione helper per mappare i codici meteo di Open-Meteo a icone
+        // Puoi espandere questa funzione con più codici e icone Lucide o altre
+        function getWeatherIcon(weathercode) {
+            // Riferimento: https://www.nodc.noaa.gov/archive/arc0021/1993/iso/wmo-code.html
+            // O la documentazione WMO di Open-Meteo
+            switch (weathercode) {
+                case 0: return "https://openweathermap.org/img/wn/01d@2x.png"; // Clear sky
+                case 1:
+                case 2:
+                case 3: return "https://openweathermap.org/img/wn/02d@2x.png"; // Mainly clear, partly cloudy, overcast
+                case 45:
+                case 48: return "https://openweathermap.org/img/wn/50d@2x.png"; // Fog and depositing rime fog
+                case 51:
+                case 53:
+                case 55: return "https://openweathermap.org/img/wn/09d@2x.png"; // Drizzle
+                case 56:
+                case 57: return "https://openweathermap.org/img/wn/09d@2x.png"; // Freezing Drizzle
+                case 61:
+                case 63:
+                case 65: return "https://openweathermap.org/img/wn/10d@2x.png"; // Rain
+                case 66:
+                case 67: return "https://openweathermap.org/img/wn/10d@2x.png"; // Freezing Rain
+                case 71:
+                case 73:
+                case 75: return "https://openweathermap.org/img/wn/13d@2x.png"; // Snow fall
+                case 77: return "https://openweathermap.org/img/wn/13d@2x.png"; // Snow grains
+                case 80:
+                case 81:
+                case 82: return "https://openweathermap.org/img/wn/09d@2x.png"; // Rain showers
+                case 85:
+                case 86: return "https://openweathermap.org/img/wn/13d@2x.png"; // Snow showers
+                case 95: return "https://openweathermap.org/img/wn/11d@2x.png"; // Thunderstorm
+                case 96:
+                case 99: return "https://openweathermap.org/img/wn/11d@2x.png"; // Thunderstorm with hail
+                default: return "https://openweathermap.org/img/wn/01d@2x.png"; // Default to clear day icon
+            }
+        }
+
 
         function updateClock(timezone, elementId) {
             const clockEl = document.getElementById(elementId);
