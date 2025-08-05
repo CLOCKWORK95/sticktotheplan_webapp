@@ -43,7 +43,8 @@
         let tripData = [];
         let currentDayUnsubscribeNotes = null;
         let currentDayUnsubscribeExpenses = null;
-        let currentDayUnsubscribeReservations = null; // Nuovo unsubscribe per le prenotazioni
+        let currentDayUnsubscribeBookedPlaces = null; // Renamed from currentDayUnsubscribeReservations
+        let currentDayUnsubscribeUnbookedPinnedPlaces = null; // New unsubscribe for unbooked pinned places
         let itineraryUnsubscribe = null;
         let backpackUnsubscribe = null; // New unsubscribe for backpack
         let pinnedPlacesUnsubscribe = null; // New unsubscribe for pinned places
@@ -56,6 +57,11 @@
         let currentMapCity = 'Tokyo'; // Default map city
         let mapMarkers = []; // Array to store map markers
         let googleMapsApiLoaded = false; // Flag to ensure API loads only once
+
+        // Variables for pinned places filters
+        let currentPinnedPlaceTagFilter = 'Tutti';
+        let currentPinnedPlaceBookedFilter = 'Tutti'; // 'Tutti', 'Prenotati', 'Non Prenotati'
+        let currentPinnedPlaceDateFilter = ''; // YYYY-MM-DD string
 
 
         // Variabili per la gestione dello swipe
@@ -88,7 +94,8 @@
                 if (itineraryUnsubscribe) itineraryUnsubscribe();
                 if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
                 if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
-                if (currentDayUnsubscribeReservations) currentDayUnsubscribeReservations(); // Clear reservations listener
+                if (currentDayUnsubscribeBookedPlaces) currentDayUnsubscribeBookedPlaces(); // Clear booked places listener
+                if (currentDayUnsubscribeUnbookedPinnedPlaces) currentDayUnsubscribeUnbookedPinnedPlaces(); // Clear unbooked pinned places listener
                 if (backpackUnsubscribe) backpackUnsubscribe(); // Clear backpack listener
                 if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
                 if(clockInterval) clearInterval(clockInterval);
@@ -299,7 +306,8 @@
 
             if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
             if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
-            if (currentDayUnsubscribeReservations) currentDayUnsubscribeReservations(); // Clear previous reservations listener
+            if (currentDayUnsubscribeBookedPlaces) currentDayUnsubscribeBookedPlaces(); // Clear previous booked places listener
+            if (currentDayUnsubscribeUnbookedPinnedPlaces) currentDayUnsubscribeUnbookedPinnedPlaces(); // Clear previous unbooked pinned places listener
             if (backpackUnsubscribe) backpackUnsubscribe(); // Ensure backpack listener is cleared for day view
             if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
             if (clockInterval) clearInterval(clockInterval);
@@ -325,7 +333,7 @@
             updateClock('Europe/Rome', 'italian-local-time'); // Aggiorna l'orario italiano
 
             const accommodationEl = document.getElementById('accommodation-widget');
-            accommodationEl.innerHTML = `<div class="font-semibold text-white">${dayData.accommodation.name}</div>${dayData.accommodation.details ? `<div class="text-sm text-gray-300">${dayData.accommodation.details}</div>` : ''}${dayData.accommodation.mapLink ? `<a href="${dayData.accommodation.mapLink}" target="_blank" class="text-blue-400 hover:underline text-sm flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i>Vedi sulla mappa</a>` : ''}`;
+            accommodationEl.innerHTML = `<div class="font-semibold text-white">${dayData.accommodation.name}</div>${dayData.accommodation.details ? `<div class="text-sm text-gray-300">${dayData.accommodation.details}</div>` : ''}${dayData.accommodation.price ? `<div class="text-sm text-gray-300">Prezzo: ${dayData.accommodation.price}</div>` : ''}${dayData.accommodation.mapLink ? `<a href="${dayData.accommodation.mapLink}" target="_blank" class="text-blue-400 hover:underline text-sm flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i>Vedi sulla mappa</a>` : ''}`;
             
             const travelEventsEl = document.getElementById('travel-events-widget');
             travelEventsEl.innerHTML = '';
@@ -333,15 +341,35 @@
                 travelEventsEl.innerHTML = `<div class="text-gray-400">Nessuno spostamento o evento principale per oggi.</div>`;
             }
             if(dayData.travel) dayData.travel.forEach(item => {
-                travelEventsEl.innerHTML += `<div class="flex items-start gap-3"><i data-lucide="train-front" class="w-5 h-5 text-red-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-white">${item.type}</div><div class="text-gray-300 text-sm">${item.description}</div></div></div>`;
+                travelEventsEl.innerHTML += `
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="train-front" class="w-5 h-5 text-red-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <div class="font-medium text-white">${item.type}</div>
+                            <div class="text-gray-300 text-sm">${item.description}</div>
+                            ${item.price ? `<div class="text-gray-400 text-xs">Costo: ${item.price}</div>` : ''}
+                            ${item.start && item.end ? `<div class="text-gray-400 text-xs">Orario: ${item.start} - ${item.end}</div>` : (item.start ? `<div class="text-gray-400 text-xs">Inizio: ${item.start}</div>` : '')}
+                        </div>
+                    </div>`;
             });
             if(dayData.events) dayData.events.forEach(item => {
-                travelEventsEl.innerHTML += `<div class="flex items-start gap-3 mt-3"><i data-lucide="ticket" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-white">${item.name}</div><div class="text-gray-300 text-sm">${item.details}</div>${item.link ? `<a href="${item.link}" target="_blank" class="text-blue-400 hover:underline text-sm">Link</a>` : ''}</div></div>`;
+                travelEventsEl.innerHTML += `
+                    <div class="flex items-start gap-3 mt-3">
+                        <i data-lucide="ticket" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i>
+                        <div>
+                            <div class="font-medium text-white">${item.name}</div>
+                            <div class="text-gray-300 text-sm">${item.details}</div>
+                            ${item.price ? `<div class="text-gray-400 text-xs">Costo: ${item.price}</div>` : ''}
+                            ${item.start && item.end ? `<div class="text-gray-400 text-xs">Orario: ${item.start} - ${item.end}</div>` : (item.start ? `<div class="text-gray-400 text-xs">Inizio: ${item.start}</div>` : '')}
+                            ${item.link ? `<a href="${item.link}" target="_blank" class="text-blue-400 hover:underline text-sm">Link</a>` : ''}
+                        </div>
+                    </div>`;
             });
 
             loadAndDisplayNotes(dateString);
             loadAndDisplayExpenses(dateString);
-            loadAndDisplayTodaysReservations(dateString); // Carica e visualizza le prenotazioni per oggi
+            loadAndDisplayTodaysBookedPlaces(dateString); // Carica e visualizza le prenotazioni per oggi (solo prenotati)
+            loadAndDisplayTodaysUnbookedPinnedPlaces(dateString); // Carica e visualizza i pinnati per oggi (non prenotati)
             renderTodaysBackpackItems(dayData.location.split('/')[0].trim()); // Render backpack items for today's location
             
             document.getElementById('save-note-btn').onclick = () => saveNote(dateString, null, 'manual'); // Passa 'manual' come sorgente
@@ -1213,7 +1241,7 @@
                 map.setCenter({ lat: coords.latitude, lng: coords.longitude });
                 map.setZoom(coords.zoom);
             }
-            loadAndDisplayPinnedPlaces(currentMapCity);
+            loadAndDisplayPinnedPlaces(currentMapCity); // Reload pinned places with current filters
             clearSearchInputs(); // Clear search inputs and results
             clearPinnedPlaceForm(); // Clear pinned place form
         }
@@ -1261,7 +1289,7 @@
         }
 
 
-        // Carica e visualizza i luoghi pinnati per la città selezionata
+        // Carica e visualizza i luoghi pinnati per la città selezionata con filtri
         function loadAndDisplayPinnedPlaces(city) {
             const pinnedPlacesListEl = document.getElementById('pinned-places-list');
             pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Caricamento luoghi pinnati...</li>';
@@ -1269,7 +1297,27 @@
 
             if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Unsubscribe from previous listener
 
-            const pinnedPlacesQuery = query(collection(db, "pinned-places"), where("city", "==", city));
+            // Build the query based on current filters
+            let pinnedPlacesQuery = query(collection(db, "pinned-places"), where("city", "==", city));
+            
+            // Apply tag filter
+            if (currentPinnedPlaceTagFilter !== 'Tutti') {
+                pinnedPlacesQuery = query(pinnedPlacesQuery, where("tag", "==", currentPinnedPlaceTagFilter));
+            }
+
+            // Apply booked filter
+            if (currentPinnedPlaceBookedFilter === 'Prenotati') {
+                pinnedPlacesQuery = query(pinnedPlacesQuery, where("isBooked", "==", true));
+            } else if (currentPinnedPlaceBookedFilter === 'Non Prenotati') {
+                pinnedPlacesQuery = query(pinnedPlacesQuery, where("isBooked", "==", false));
+            }
+
+            // Apply reservation date filter
+            if (currentPinnedPlaceDateFilter) {
+                pinnedPlacesQuery = query(pinnedPlacesQuery, where("reservationDate", "==", currentPinnedPlaceDateFilter));
+            }
+
+
             pinnedPlacesUnsubscribe = onSnapshot(pinnedPlacesQuery, (snapshot) => {
                 pinnedPlacesListEl.innerHTML = '';
                 clearMapMarkers(); // Clear existing markers before adding new ones
@@ -1277,7 +1325,7 @@
                 snapshot.forEach(doc => places.push({ id: doc.id, ...doc.data() }));
 
                 if (places.length === 0) {
-                    pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Nessun luogo pinnato per questa città.</li>';
+                    pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Nessun luogo pinnato per questa città con i filtri selezionati.</li>';
                 } else {
                     places.forEach(place => {
                         const li = document.createElement('li');
@@ -1291,6 +1339,8 @@
                                 <span class="text-gray-400 block text-xs">Lat: ${place.latitude.toFixed(4)}, Lng: ${place.longitude.toFixed(4)}</span>
                                 <span class="text-red-300 text-xs block">${place.tag}</span>
                                 ${place.reservationDate ? `<span class="text-blue-300 text-xs block">Prenotazione: ${place.reservationDate} ${place.reservationTime || ''}</span>` : ''}
+                                ${typeof place.isBooked === 'boolean' ? `<span class="text-xs block ${place.isBooked ? 'text-green-400' : 'text-orange-400'}">${place.isBooked ? 'Prenotato' : 'Non Prenotato'}</span>` : ''}
+                                ${place.bookingFileLink ? `<a href="${place.bookingFileLink}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i>Link Prenotazione</a>` : ''}
                                 ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
                                 ${place.mapUrl ? `<a href="${place.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Vedi su Mappa</a>` : ''}
                             </div>
@@ -1315,10 +1365,47 @@
                     pinnedPlacesListEl.querySelectorAll('.edit-pinned-place-btn').forEach(button => {
                         button.addEventListener('click', (e) => editPinnedPlace(e.currentTarget.dataset.id, places)); // Pass places array
                     });
+                    pinnedPlacesListEl.querySelectorAll('.delete-pinned-place-btn').forEach(button => {
+                        button.addEventListener('click', (e) => deletePinnedPlace(e.currentTarget.dataset.id));
+                    });
                 }
                 lucide.createIcons();
             });
         }
+
+        // Funzioni per i filtri dei luoghi pinnati
+        function filterPinnedPlacesByTag(tag) {
+            currentPinnedPlaceTagFilter = tag;
+            // Update button styles
+            document.querySelectorAll('.filter-tag-btn').forEach(btn => {
+                btn.classList.remove('bg-red-500', 'ring-2', 'ring-red-300');
+            });
+            document.getElementById(`filter-tag-${tag.toLowerCase().replace(/\s/g, '-')}-btn`).classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        }
+
+        function filterPinnedPlacesByBookedStatus(status) {
+            currentPinnedPlaceBookedFilter = status;
+            // Update button styles
+            document.querySelectorAll('.filter-booked-btn').forEach(btn => {
+                btn.classList.remove('bg-red-500', 'ring-2', 'ring-red-300');
+            });
+            document.getElementById(`filter-booked-${status.toLowerCase().replace(/\s/g, '-')}-btn`).classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        }
+
+        function filterPinnedPlacesByDate() {
+            const dateInput = document.getElementById('filter-pinned-date-input');
+            currentPinnedPlaceDateFilter = dateInput.value;
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        }
+
+        function clearPinnedPlaceDateFilter() {
+            document.getElementById('filter-pinned-date-input').value = '';
+            currentPinnedPlaceDateFilter = '';
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        }
+
 
         // Aggiungi un marker alla mappa
         function addMapMarker(lat, lng, title, snippet = '', icon = null) {
@@ -1359,6 +1446,8 @@
             const timeInput = document.getElementById('pinned-place-time');
             const tagSelect = document.getElementById('pinned-place-tag');
             const notesInput = document.getElementById('pinned-place-notes');
+            const isBookedCheckbox = document.getElementById('pinned-place-is-booked'); // New
+            const bookingFileLinkInput = document.getElementById('pinned-place-booking-file-link'); // New
 
             const name = nameInput.value.trim();
             const latitude = parseFloat(latInput.value);
@@ -1367,6 +1456,8 @@
             const reservationTime = timeInput.value.trim();
             const tag = tagSelect.value;
             const notes = notesInput.value.trim();
+            const isBooked = isBookedCheckbox.checked; // Get boolean value
+            const bookingFileLink = bookingFileLinkInput.value.trim(); // Get link
 
             if (name && !isNaN(latitude) && !isNaN(longitude) && currentMapCity) {
                 const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`; // Generate map URL
@@ -1380,6 +1471,8 @@
                     tag: tag,
                     notes: notes || null,
                     mapUrl: mapUrl, // Save the map URL
+                    isBooked: isBooked, // Save isBooked status
+                    bookingFileLink: bookingFileLink || null, // Save booking file link
                     createdAt: new Date()
                 });
                 clearPinnedPlaceForm(); // Clear form after saving
@@ -1452,6 +1545,9 @@
                             document.getElementById('pinned-place-lng').value = e.target.dataset.lng;
                             document.getElementById('pinned-place-tag').value = e.target.dataset.type;
                             document.getElementById('pinned-place-notes').value = `Indirizzo: ${e.target.dataset.address}`;
+                            // Reset booked and booking file link on search selection
+                            document.getElementById('pinned-place-is-booked').checked = false;
+                            document.getElementById('pinned-place-booking-file-link').value = '';
                             showCustomAlert(`Modulo precompilato con ${e.target.dataset.name}.`);
                         });
                         resultsList.appendChild(li);
@@ -1467,33 +1563,34 @@
             }
         }
 
-        // Funzione per caricare e visualizzare le prenotazioni del giorno corrente
-        function loadAndDisplayTodaysReservations(dateString) {
-            const reservationsListEl = document.getElementById('todays-reservations-list');
-            reservationsListEl.innerHTML = '<li class="text-gray-400">Caricamento prenotazioni...</li>';
+        // Funzione per caricare e visualizzare le prenotazioni del giorno corrente (solo prenotati)
+        function loadAndDisplayTodaysBookedPlaces(dateString) {
+            const bookedPlacesListEl = document.getElementById('todays-booked-places-list');
+            bookedPlacesListEl.innerHTML = '<li class="text-gray-400">Caricamento prenotazioni...</li>';
 
-            if (currentDayUnsubscribeReservations) currentDayUnsubscribeReservations(); // Disiscrivi dal listener precedente
+            if (currentDayUnsubscribeBookedPlaces) currentDayUnsubscribeBookedPlaces(); // Disiscrivi dal listener precedente
 
-            const reservationsQuery = query(
+            const bookedPlacesQuery = query(
                 collection(db, "pinned-places"),
-                where("reservationDate", "==", dateString)
+                where("reservationDate", "==", dateString),
+                where("isBooked", "==", true) // Filter for booked places
             );
 
-            currentDayUnsubscribeReservations = onSnapshot(reservationsQuery, (snapshot) => {
-                reservationsListEl.innerHTML = '';
-                let reservations = [];
-                snapshot.forEach(doc => reservations.push(doc.data()));
+            currentDayUnsubscribeBookedPlaces = onSnapshot(bookedPlacesQuery, (snapshot) => {
+                bookedPlacesListEl.innerHTML = '';
+                let bookedPlaces = [];
+                snapshot.forEach(doc => bookedPlaces.push({ id: doc.id, ...doc.data() }));
                 // Ordina le prenotazioni per ora se disponibile
-                reservations.sort((a, b) => {
+                bookedPlaces.sort((a, b) => {
                     const timeA = a.reservationTime || '00:00';
                     const timeB = b.reservationTime || '00:00';
                     return timeA.localeCompare(timeB);
                 });
 
-                if (reservations.length === 0) {
-                    reservationsListEl.innerHTML = '<li class="text-gray-400">Nessuna prenotazione per oggi.</li>';
+                if (bookedPlaces.length === 0) {
+                    bookedPlacesListEl.innerHTML = '<li class="text-gray-400">Nessuna prenotazione confermata per oggi.</li>';
                 } else {
-                    reservations.forEach(res => {
+                    bookedPlaces.forEach(res => {
                         const li = document.createElement('li');
                         li.className = 'bg-blue-400/10 text-blue-200 p-3 rounded-lg text-sm mb-2';
                         li.innerHTML = `
@@ -1501,20 +1598,82 @@
                             <div class="text-gray-300 text-xs">${res.tag}</div>
                             ${res.reservationTime ? `<div class="text-blue-300 text-xs">Ora: ${res.reservationTime}</div>` : ''}
                             ${res.notes ? `<p class="text-gray-400 text-xs mt-1">${res.notes}</p>` : ''}
+                            ${res.bookingFileLink ? `<a href="${res.bookingFileLink}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i>Link Prenotazione</a>` : ''}
                             ${res.mapUrl ? `<a href="${res.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Vedi su Mappa</a>` : ''}
                         `;
-                        reservationsListEl.appendChild(li);
+                        bookedPlacesListEl.appendChild(li);
                     });
                 }
                 lucide.createIcons();
             });
         }
 
+        // Funzione per caricare e visualizzare i luoghi pinnati non prenotati per il giorno corrente
+        function loadAndDisplayTodaysUnbookedPinnedPlaces(dateString) {
+            const unbookedPinnedPlacesListEl = document.getElementById('todays-unbooked-pinned-places-list');
+            unbookedPinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Caricamento luoghi pinnati non prenotati...</li>';
+
+            if (currentDayUnsubscribeUnbookedPinnedPlaces) currentDayUnsubscribeUnbookedPinnedPlaces(); // Disiscrivi dal listener precedente
+
+            // Fetch all pinned places for the current day and filter client-side
+            const unbookedPinnedPlacesQuery = query(
+                collection(db, "pinned-places"),
+                where("reservationDate", "==", dateString)
+            );
+
+            currentDayUnsubscribeUnbookedPinnedPlaces = onSnapshot(unbookedPinnedPlacesQuery, (snapshot) => {
+                unbookedPinnedPlacesListEl.innerHTML = '';
+                let unbookedPlaces = [];
+                snapshot.forEach(doc => {
+                    const place = doc.data();
+                    // Include if isBooked is explicitly false or not present
+                    if (place.isBooked === false || typeof place.isBooked === 'undefined') {
+                        unbookedPlaces.push({ id: doc.id, ...place });
+                    }
+                });
+                // Ordina per ora se disponibile
+                unbookedPlaces.sort((a, b) => {
+                    const timeA = a.reservationTime || '00:00';
+                    const timeB = b.reservationTime || '00:00';
+                    return timeA.localeCompare(timeB);
+                });
+
+                if (unbookedPlaces.length === 0) {
+                    unbookedPinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Nessun luogo pinnato non prenotato per oggi.</li>';
+                } else {
+                    unbookedPlaces.forEach(place => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-orange-400/10 text-orange-200 p-3 rounded-lg text-sm mb-2';
+                        li.innerHTML = `
+                            <div class="font-semibold text-white">${place.name}</div>
+                            <div class="text-gray-300 text-xs">${place.tag}</div>
+                            ${place.reservationTime ? `<div class="text-orange-300 text-xs">Ora: ${place.reservationTime}</div>` : ''}
+                            ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
+                            ${place.mapUrl ? `<a href="${place.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Vedi su Mappa</a>` : ''}
+                        `;
+                        unbookedPinnedPlacesListEl.appendChild(li);
+                    });
+                }
+                lucide.createIcons();
+            });
+        }
+
+
         // Funzione per pulire tutti gli input e i risultati della sezione Mappa
         function clearMapInputs() {
             clearSearchInputs();
             clearPinnedPlaceForm();
             clearMapMarkers(); // Clear markers when leaving map view
+            // Reset filters when leaving map view
+            currentPinnedPlaceTagFilter = 'Tutti';
+            currentPinnedPlaceBookedFilter = 'Tutti';
+            currentPinnedPlaceDateFilter = '';
+            // Reset filter button styles
+            document.querySelectorAll('.filter-tag-btn').forEach(btn => btn.classList.remove('bg-red-500', 'ring-2', 'ring-red-300'));
+            document.getElementById('filter-tag-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+            document.querySelectorAll('.filter-booked-btn').forEach(btn => btn.classList.remove('bg-red-500', 'ring-2', 'ring-red-300'));
+            document.getElementById('filter-booked-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+            document.getElementById('filter-pinned-date-input').value = '';
         }
 
         // Funzione per pulire gli input di ricerca e i risultati
@@ -1532,6 +1691,8 @@
             document.getElementById('pinned-place-time').value = '';
             document.getElementById('pinned-place-tag').value = 'Attrazione';
             document.getElementById('pinned-place-notes').value = '';
+            document.getElementById('pinned-place-is-booked').checked = false; // Clear checkbox
+            document.getElementById('pinned-place-booking-file-link').value = ''; // Clear link
         }
 
         // Function to handle editing a pinned place
@@ -1567,6 +1728,11 @@
                     <select id="edit-pinned-tag-${placeId}" class="form-input p-2 rounded-md text-sm">
                         ${['Attrazione', 'Ristorante', 'Trasporto', 'Alloggio', 'Altro'].map(tag => `<option value="${tag}" ${placeToEdit.tag === tag ? 'selected' : ''}>${tag}</option>`).join('')}
                     </select>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" id="edit-pinned-is-booked-${placeId}" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer" ${placeToEdit.isBooked ? 'checked' : ''}>
+                        <label for="edit-pinned-is-booked-${placeId}" class="text-sm text-gray-400">Prenotato</label>
+                    </div>
+                    <input type="url" id="edit-pinned-booking-file-link-${placeId}" class="form-input w-full p-2 border rounded-md text-sm" value="${placeToEdit.bookingFileLink || ''}" placeholder="Link file prenotazione (Drive)">
                     <textarea id="edit-pinned-notes-${placeId}" rows="2" class="form-input w-full p-2 border rounded-md text-sm">${placeToEdit.notes || ''}</textarea>
                     <div class="flex gap-2 mt-2">
                         <button data-id="${placeId}" class="save-edit-pinned-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Salva</button>
@@ -1588,6 +1754,8 @@
             const timeInput = document.getElementById(`edit-pinned-time-${placeId}`);
             const tagSelect = document.getElementById(`edit-pinned-tag-${placeId}`);
             const notesInput = document.getElementById(`edit-pinned-notes-${placeId}`);
+            const isBookedCheckbox = document.getElementById(`edit-pinned-is-booked-${placeId}`); // New
+            const bookingFileLinkInput = document.getElementById(`edit-pinned-booking-file-link-${placeId}`); // New
 
             const newName = nameInput.value.trim();
             const newLatitude = parseFloat(latInput.value);
@@ -1596,6 +1764,8 @@
             const newReservationTime = timeInput.value.trim();
             const newTag = tagSelect.value;
             const newNotes = notesInput.value.trim();
+            const newIsBooked = isBookedCheckbox.checked; // Get boolean value
+            const newBookingFileLink = bookingFileLinkInput.value.trim(); // Get link
 
             if (newName && !isNaN(newLatitude) && !isNaN(newLongitude)) {
                 const placeRef = doc(db, "pinned-places", placeId);
@@ -1609,7 +1779,9 @@
                     reservationTime: newReservationTime || null,
                     tag: newTag,
                     notes: newNotes || null,
-                    mapUrl: newMapUrl // Update map URL
+                    mapUrl: newMapUrl, // Update map URL
+                    isBooked: newIsBooked, // Update isBooked status
+                    bookingFileLink: newBookingFileLink || null // Update booking file link
                 });
                 cancelEditPinnedPlace(placeId); // Exit edit mode
                 showCustomAlert('Luogo pinnato aggiornato con successo!');
@@ -1786,6 +1958,26 @@
             document.getElementById('search-places-btn').addEventListener('click', searchPlaces); // New search button listener
             document.getElementById('clear-search-btn').addEventListener('click', clearSearchInputs); // New clear search button listener
             document.getElementById('clear-pinned-place-form-btn').addEventListener('click', clearPinnedPlaceForm); // New clear pinned place form button
+
+            // Pinned places filter listeners
+            document.getElementById('filter-tag-tutti-btn').addEventListener('click', () => filterPinnedPlacesByTag('Tutti'));
+            document.getElementById('filter-tag-attrazione-btn').addEventListener('click', () => filterPinnedPlacesByTag('Attrazione'));
+            document.getElementById('filter-tag-ristorante-btn').addEventListener('click', () => filterPinnedPlacesByTag('Ristorante'));
+            document.getElementById('filter-tag-trasporto-btn').addEventListener('click', () => filterPinnedPlacesByTag('Trasporto'));
+            document.getElementById('filter-tag-alloggio-btn').addEventListener('click', () => filterPinnedPlacesByTag('Alloggio'));
+            document.getElementById('filter-tag-altro-btn').addEventListener('click', () => filterPinnedPlacesByTag('Altro'));
+
+            document.getElementById('filter-booked-tutti-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Tutti'));
+            document.getElementById('filter-booked-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Prenotati'));
+            document.getElementById('filter-booked-non-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Non Prenotati'));
+
+            document.getElementById('filter-pinned-date-input').addEventListener('change', filterPinnedPlacesByDate);
+            document.getElementById('clear-pinned-date-filter-btn').addEventListener('click', clearPinnedPlaceDateFilter);
+
+            // Set initial filter button states
+            document.getElementById('filter-tag-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+            document.getElementById('filter-booked-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
+
 
             // Event delegation for delete buttons on pinned places list
             document.getElementById('pinned-places-list').addEventListener('click', (e) => {
@@ -2220,13 +2412,23 @@
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-red-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
                         
-                        <!-- Nuova sezione: Prenotazioni di oggi -->
+                        <!-- Nuovo box: Prenotati per oggi -->
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
                             <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                                <i data-lucide="calendar-check" class="w-5 h-5 text-blue-400"></i>Prenotazioni di oggi
+                                <i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Prenotati per oggi
                             </h3>
-                            <ul id="todays-reservations-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                            <ul id="todays-booked-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
                                 <!-- Le prenotazioni verranno caricate qui da JS -->
+                            </ul>
+                        </div>
+
+                        <!-- Nuovo box: Pinnati per oggi (non prenotati) -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                            <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                                <i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati per oggi (non prenotati)
+                            </h3>
+                            <ul id="todays-unbooked-pinned-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                <!-- I luoghi pinnati non prenotati verranno caricati qui da JS -->
                             </ul>
                         </div>
 
@@ -2428,6 +2630,14 @@
                                 <option>Altro</option>
                             </select>
                         </div>
+                        <div class="md:col-span-2 flex items-center gap-2 mt-2">
+                            <input type="checkbox" id="pinned-place-is-booked" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer">
+                            <label for="pinned-place-is-booked" class="text-sm font-medium text-gray-400">Prenotato</label>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="pinned-place-booking-file-link" class="block text-sm font-medium text-gray-400 mb-1">Link file prenotazione (Drive, Opz.)</label>
+                            <input type="url" id="pinned-place-booking-file-link" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. https://drive.google.com/link-al-file">
+                        </div>
                         <div class="md:col-span-2">
                             <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
                             <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
@@ -2446,6 +2656,35 @@
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
                         <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
                     </h3>
+                    <!-- Filter buttons for Pinned Places -->
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Tag:</h4>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button id="filter-tag-tutti-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                            <button id="filter-tag-attrazione-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Attrazione</button>
+                            <button id="filter-tag-ristorante-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Ristorante</button>
+                            <button id="filter-tag-trasporto-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Trasporto</button>
+                            <button id="filter-tag-alloggio-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Alloggio</button>
+                            <button id="filter-tag-altro-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Altro</button>
+                        </div>
+
+                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Stato Prenotazione:</h4>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button id="filter-booked-tutti-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                            <button id="filter-booked-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Prenotati</button>
+                            <button id="filter-booked-non-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Non Prenotati</button>
+                        </div>
+
+                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Giorno di Prenotazione:</h4>
+                        <div class="flex gap-2">
+                            <input type="date" id="filter-pinned-date-input" class="form-input flex-1 p-2 border rounded-md text-sm">
+                            <button id="clear-pinned-date-filter-btn" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 text-sm flex items-center justify-center gap-1">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                                <span class="hidden sm:inline">Cancella</span>
+                            </button>
+                        </div>
+                    </div>
+                    
                     <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
                         <!-- Pinned places will be loaded here by JS -->
                     </ul>

@@ -4,24 +4,68 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "details": "212€ (35.073 YEN)",
+      "details": "Check-in Today 15.00, Check-out 26/08 10.00",
+      "price": "35073 JPY",
       "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
     },
     "travel": [
       {
-        "type": "Aereo",
-        "description": "NARITA AIRPORT -> TOKYO STATION (€22 a persona)"
+        "type": "Treno",
+        "description": "Skyliner Limited Express : Narita Airport Terminal 2·3 -> Keisei-Ueno",
+        "price": "28€",
+        "start" : "12:02",
+        "end" : "12:43"
+      },
+      {
+        "type": "Metro",
+        "description": "Ueno -> Asakusa Station",
+        "price": "circa 15€",
+        "start" : "12:48",
+        "end" : "12:54"
       }
     ],
     "events": [
       {
-        "name": "Museo Nazionale di Tokyo",
-        "details": "Prenotare dal 23.06"
+        "name": "Arrivo Tokyo Airport",
+        "details": "Atterraggio previsto alle 10.25",
+        "price": "FREE",
+        "start" : "10.25",
+        "end" : "10.25"
       },
       {
-        "name": "Tokyo Tower",
-        "details": "Prenotare dal 23.06",
-        "link": "https://ars-tokyotower.linktivity.io/activity/en/LINKTIVITY-UP6NK"
+        "name": "Viaggio verso Hotel",
+        "details": "Treno + Metro + Walk",
+        "price": "circa 45€",
+        "start" : "12.02",
+        "end" : "13.00"
+      },
+      {
+        "name": "Portale Kaminarimon e Tempio Senso-ji",
+        "details": "Accesso dalle 6.00 alle 17.00",
+        "price": "FREE",
+        "start" : "15.30",
+        "end" : "17.00"
+      },
+      {
+        "name": "Tempio Asakusa-Jinja",
+        "details": "None",
+        "price": "FREE",
+        "start" : "17.30",
+        "end" : "18.30"
+      },
+      {
+        "name": "Denboin-dori",
+        "details": "Strada in stile periodo Edo con negozi tradizionali",
+        "price": "FREE",
+        "start" : "19.00",
+        "end" : "20.00"
+      },
+      {
+        "name": "Cena in zona Asakusa e Passeggiata",
+        "details": "Da valutare tra i ristoranti locali pinnati",
+        "price": "3000 JPY",
+        "start" : "20.00",
+        "end" : "22.00"
       }
     ]
   },
@@ -43,7 +87,36 @@
       "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
     },
     "travel": [],
-    "events": []
+    "events": [
+      {
+        "name": "Passeggiata a Ueno Park",
+        "details": "Passeggiata al mattino nel parco verso il Museo Nazionale di Tokyo",
+        "price": "FREE",
+        "start" : "8.00",
+        "end" : "9.30"
+      },
+      {
+        "name": "Museo Nazionale di Tokyo",
+        "details": "Visita al Museo Nazionale di Tokyo",
+        "price": "2000 JPY",
+        "start" : "9.30",
+        "end" : "11.30"
+      },
+      {
+        "name": "Mercato del pesce di Tsukiji",
+        "details": "Visita al Mercato del pesce di Tsukiji e pranzo",
+        "price": "FREE",
+        "start" : "12.30",
+        "end" : "14.00"
+      },
+      {
+        "name": "Tokyo Tower",
+        "details": "Visita alla Tokyo Tower - TOPDECK Tour",
+        "price": "6000 JPY",
+        "start" : "15.15",
+        "end" : "17.00"
+      }
+    ]
   },
   {
     "date": "2025-08-26",
