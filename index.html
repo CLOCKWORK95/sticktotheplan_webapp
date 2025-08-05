@@ -247,7 +247,7 @@
             // Ottieni le coordinate dalla mappa cityCoordinates
             const cityKey = dayData.location.split('/')[0].trim();
             const coords = cityCoordinates[cityKey] || cityCoordinates["default"];
-            getWeather(coords.latitude, coords.longitude); // Passa lat e lon
+            getWeather(coords.latitude, coords.longitude, dayData.location.split('/')[0].trim()); // Passa lat, lon e nome città
 
             updateClock('Asia/Tokyo', 'local-time');
             updateClock('Europe/Rome', 'italian-local-time'); // Aggiorna l'orario italiano
@@ -277,14 +277,16 @@
             
             // Nuovo listener per il pulsante "Pulisci"
             document.getElementById('clear-translation-btn').onclick = () => clearTranslationBoxes();
+            // Nuovo listener per il pulsante "Meteo attuale"
+            document.getElementById('current-location-weather-btn').onclick = () => getGeolocationWeather();
 
 
             lucide.createIcons();
         }
         
-        async function getWeather(latitude, longitude) {
+        async function getWeather(latitude, longitude, locationName = 'Posizione attuale') {
             const weatherWidget = document.getElementById('weather-widget');
-            weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento...</div>`;
+            weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento meteo per ${locationName}...</div>`;
             
             try {
                 // Chiamata alla Netlify Function per il meteo
@@ -303,26 +305,71 @@
                 
                 // Mappa i codici icona di Open-Meteo alle icone di OpenWeatherMap o a Lucide Icons se preferisci
                 // Per semplicità, useremo un mapping di base o potresti voler integrare un set di icone meteo
-                const weatherIcon = getWeatherIcon(data.weathercode); // Funzione helper per mappare il codice meteo all'icona
                 
                 weatherWidget.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <img src="${weatherIcon}" alt="weather icon" class="w-16 h-16 -my-2">
+                    <h4 class="font-semibold text-lg mb-2 text-white">${locationName}</h4>
+                    <div class="flex items-center gap-4 mb-4">
+                        <img src="${getWeatherIcon(data.current.weathercode)}" alt="weather icon" class="w-16 h-16 -my-2">
                         <div>
-                            <div class="text-3xl font-bold text-white">${Math.round(data.temperature)}°C</div>
-                            <div class="text-gray-300 capitalize">${data.description}</div>
+                            <div class="text-3xl font-bold text-white">${Math.round(data.current.temperature)}°C</div>
+                            <div class="text-gray-300 capitalize">${data.current.description}</div>
                         </div>
                         <div class="text-sm text-gray-400">
-                            <div>Umidità: ${data.relativehumidity_2m}%</div>
-                            <div>Vento: ${data.windspeed_10m} km/h</div>
+                            <div>Umidità: ${data.current.relativehumidity_2m}%</div>
+                            <div>Vento: ${data.current.windspeed_10m} km/h</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div>
+                            <p class="font-medium text-gray-200">Mattino</p>
+                            <img src="${getWeatherIcon(data.morning.weathercode)}" alt="morning weather" class="w-10 h-10 mx-auto">
+                            <p class="text-gray-300">${Math.round(data.morning.temperature_2m_max)}°C</p>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-200">Pomeriggio</p>
+                            <img src="${getWeatherIcon(data.afternoon.weathercode)}" alt="afternoon weather" class="w-10 h-10 mx-auto">
+                            <p class="text-gray-300">${Math.round(data.afternoon.temperature_2m_max)}°C</p>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-200">Sera</p>
+                            <img src="${getWeatherIcon(data.evening.weathercode)}" alt="evening weather" class="w-10 h-10 mx-auto">
+                            <p class="text-gray-300">${Math.round(data.evening.temperature_2m_max)}°C</p>
                         </div>
                     </div>
                 `;
             } catch (error) {
                 console.error("Weather error:", error);
-                weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile. ${error.message}</div>`;
+                weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile per ${locationName}. ${error.message}</div>`;
             }
         }
+
+        // Funzione per ottenere il meteo della posizione attuale
+        function getGeolocationWeather() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        // Chiamata alla Netlify Function per ottenere il nome della località dalla geolocalizzazione
+                        const response = await fetch('/.netlify/functions/getWeather', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ latitude: lat, longitude: lon, reverseGeocode: true })
+                        });
+                        const data = await response.json();
+                        const locationName = data.locationName || 'La tua posizione';
+                        getWeather(lat, lon, locationName); // Aggiorna il meteo con la posizione attuale
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                        document.getElementById('weather-widget').innerHTML = `<div class="text-red-400">Impossibile ottenere la tua posizione. Abilita la geolocalizzazione.</div>`;
+                    }
+                );
+            } else {
+                document.getElementById('weather-widget').innerHTML = `<div class="text-red-400">La geolocalizzazione non è supportata dal tuo browser.</div>`;
+            }
+        }
+
 
         // Funzione helper per mappare i codici meteo di Open-Meteo a icone
         // Puoi espandere questa funzione con più codici e icone Lucide o altre
@@ -658,7 +705,16 @@
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo</h3><div id="weather-widget"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                        <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                            <i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo
+                        </h3>
+                        <div id="weather-widget"></div>
+                        <button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Meteo attuale</span>
+                        </button>
+                    </div>
                     <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-indigo-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
                     <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-indigo-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
                     <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-indigo-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
