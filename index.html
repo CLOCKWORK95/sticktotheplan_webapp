@@ -14,7 +14,7 @@
     <script type="module">
         // Importa le funzioni necessarie dai moduli Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // =================================================================================
@@ -1139,7 +1139,62 @@
                     handleSwipe();
                 });
             }
+
+            // Listener per il pulsante di importazione JSON
+            const importJsonBtn = document.getElementById('import-json-btn');
+            const importJsonInput = document.getElementById('import-json-input');
+
+            if (importJsonBtn && importJsonInput) {
+                importJsonBtn.addEventListener('click', () => {
+                    importJsonInput.click(); // Trigger click on hidden file input
+                });
+
+                importJsonInput.addEventListener('change', async (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                            try {
+                                const jsonData = JSON.parse(e.target.result);
+                                if (Array.isArray(jsonData)) {
+                                    await importItineraryFromJson(jsonData);
+                                    alert('Itinerario importato con successo!');
+                                } else {
+                                    alert('Errore: Il file JSON non contiene un array di giorni valido.');
+                                }
+                            } catch (error) {
+                                console.error("Errore durante la lettura o il parsing del JSON:", error);
+                                alert('Errore durante l\'importazione del file JSON. Assicurati che sia un formato valido.');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
         });
+
+        // Funzione per importare l'itinerario da un array JSON
+        async function importItineraryFromJson(data) {
+            const batch = writeBatch(db);
+            const itineraryCollectionRef = collection(db, "itinerary");
+
+            // Per semplicità, questa implementazione sovrascrive i giorni esistenti
+            // e aggiunge nuovi giorni. Non elimina i giorni che non sono nel JSON.
+            data.forEach(day => {
+                // Usiamo la data come ID del documento per facilitare l'aggiornamento
+                const dayRef = doc(itineraryCollectionRef, day.date);
+                batch.set(dayRef, day, { merge: true }); // merge: true per non sovrascrivere interamente il documento se ci sono campi extra
+            });
+
+            try {
+                await batch.commit();
+                console.log("Itinerario aggiornato da JSON con successo.");
+                loadItineraryAndInitApp(); // Ricarica l'itinerario per aggiornare la vista
+            } catch (error) {
+                console.error("Errore durante l'aggiornamento di Firestore da JSON:", error);
+                throw error; // Rilancia l'errore per gestirlo nel chiamante
+            }
+        }
 
         function handleSwipe() {
             const deltaX = touchEndX - touchStartX;
@@ -1475,6 +1530,17 @@
                             <!-- Le righe verranno popolate da JS -->
                         </tbody>
                     </table>
+                </div>
+
+                <div class="mt-6 bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="file-json" class="w-5 h-5 text-red-400"></i>Importa Itinerario da JSON
+                    </h3>
+                    <p class="text-gray-400 text-sm mb-4">Puoi aggiornare l'itinerario caricando un file JSON. I giorni esistenti verranno aggiornati, i nuovi giorni verranno aggiunti.</p>
+                    <button id="import-json-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
+                        Seleziona File JSON
+                    </button>
+                    <input type="file" id="import-json-input" accept=".json" class="hidden">
                 </div>
             </main>
         </div>
