@@ -1,0 +1,9 @@
+{
+  "name": "netlify-functions",
+  "version": "1.0.0",
+  "description": "Serverless functions for the Japan trip app",
+  "main": "translate.js",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  }
+}
