@@ -166,6 +166,7 @@
                 snapshot.forEach(doc => tripData.push(doc.data()));
                 tripData.sort((a, b) => new Date(a.date) - new Date(b.date));
                 
+                populateCityTagDropdown(); // Call after tripData is loaded
                 renderHomeView();
                 navigateTo('home');
             });
@@ -248,7 +249,7 @@
                     <td class="p-4">${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}</td>
                     <td class="p-4">${day.location}</td>
                     <td class="p-4">${day.accommodation.name}</td>
-                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-indigo-400')}"></i></td>
+                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-red-400')}"></i></td>
                 `;
                 row.addEventListener('click', () => {
                     renderDayDetailView(day.date);
@@ -291,7 +292,7 @@
             updateClock('Europe/Rome', 'italian-local-time'); // Aggiorna l'orario italiano
 
             const accommodationEl = document.getElementById('accommodation-widget');
-            accommodationEl.innerHTML = `<div class="font-semibold text-gray-100">${dayData.accommodation.name}</div>${dayData.accommodation.details ? `<div class="text-sm text-gray-400">${dayData.accommodation.details}</div>` : ''}${dayData.accommodation.mapLink ? `<a href="${dayData.accommodation.mapLink}" target="_blank" class="text-indigo-400 hover:underline text-sm flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i>Vedi sulla mappa</a>` : ''}`;
+            accommodationEl.innerHTML = `<div class="font-semibold text-white">${dayData.accommodation.name}</div>${dayData.accommodation.details ? `<div class="text-sm text-gray-300">${dayData.accommodation.details}</div>` : ''}${dayData.accommodation.mapLink ? `<a href="${dayData.accommodation.mapLink}" target="_blank" class="text-blue-400 hover:underline text-sm flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i>Vedi sulla mappa</a>` : ''}`;
             
             const travelEventsEl = document.getElementById('travel-events-widget');
             travelEventsEl.innerHTML = '';
@@ -299,10 +300,10 @@
                 travelEventsEl.innerHTML = `<div class="text-gray-400">Nessuno spostamento o evento principale per oggi.</div>`;
             }
             if(dayData.travel) dayData.travel.forEach(item => {
-                travelEventsEl.innerHTML += `<div class="flex items-start gap-3"><i data-lucide="train-front" class="w-5 h-5 text-indigo-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-gray-100">${item.type}</div><div class="text-sm text-gray-300">${item.description}</div></div></div>`;
+                travelEventsEl.innerHTML += `<div class="flex items-start gap-3"><i data-lucide="train-front" class="w-5 h-5 text-red-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-white">${item.type}</div><div class="text-gray-300 text-sm">${item.description}</div></div></div>`;
             });
             if(dayData.events) dayData.events.forEach(item => {
-                travelEventsEl.innerHTML += `<div class="flex items-start gap-3 mt-3"><i data-lucide="ticket" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-gray-100">${item.name}</div><div class="text-sm text-gray-300">${item.details}</div>${item.link ? `<a href="${item.link}" target="_blank" class="text-indigo-400 hover:underline text-sm">Link</a>` : ''}</div></div>`;
+                travelEventsEl.innerHTML += `<div class="flex items-start gap-3 mt-3"><i data-lucide="ticket" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-white">${item.name}</div><div class="text-gray-300 text-sm">${item.details}</div>${item.link ? `<a href="${item.link}" target="_blank" class="text-blue-400 hover:underline text-sm">Link</a>` : ''}</div></div>`;
             });
 
             loadAndDisplayNotes(dateString);
@@ -393,17 +394,17 @@
                     </div>
                     <div class="grid grid-cols-3 gap-2 text-center text-sm">
                         <div>
-                            <p class="font-medium text-gray-200">Mattino</p>
+                            <p class="font-medium text-white">Mattino</p>
                             <img src="${getWeatherIcon(data.morning.weathercode)}" alt="morning weather" class="w-10 h-10 mx-auto">
                             <p class="text-gray-300">${Math.round(data.morning.temperature_2m_max)}°C</p>
                         </div>
                         <div>
-                            <p class="font-medium text-gray-200">Pomeriggio</p>
+                            <p class="font-medium text-white">Pomeriggio</p>
                             <img src="${getWeatherIcon(data.afternoon.weathercode)}" alt="afternoon weather" class="w-10 h-10 mx-auto">
                             <p class="text-gray-300">${Math.round(data.afternoon.temperature_2m_max)}°C</p>
                         </div>
                         <div>
-                            <p class="font-medium text-gray-200">Sera</p>
+                            <p class="font-medium text-white">Sera</p>
                             <img src="${getWeatherIcon(data.evening.weathercode)}" alt="evening weather" class="w-10 h-10 mx-auto">
                             <p class="text-gray-300">${Math.round(data.evening.temperature_2m_max)}°C</p>
                         </div>
@@ -519,7 +520,7 @@
                     notes.forEach(note => {
                         const li = document.createElement('li');
                         // Applica classi diverse in base alla sorgente della nota
-                        const noteClass = note.source === 'translation' ? 'bg-blue-400/10 text-blue-200' : 'bg-yellow-400/10 text-yellow-200';
+                        const noteClass = note.source === 'translation' ? 'bg-blue-400/10 text-blue-200' : 'bg-red-400/10 text-red-200';
                         li.className = `${noteClass} p-3 rounded-lg text-sm`;
                         li.textContent = note.text;
                         notesListEl.appendChild(li);
@@ -557,7 +558,7 @@
                     expenses.forEach(expense => {
                         const li = document.createElement('li');
                         li.className = 'flex justify-between items-center text-sm text-gray-300';
-                        li.innerHTML = `<span>${expense.description}</span> <span class="font-semibold text-gray-100">${expense.amount} ¥</span>`;
+                        li.innerHTML = `<span>${expense.description}</span> <span class="font-semibold text-white">${expense.amount} ¥</span>`;
                         expensesListEl.appendChild(li);
                         total += parseFloat(expense.amount);
                     });
@@ -685,27 +686,41 @@
                     filteredItems.forEach(item => {
                         const li = document.createElement('li');
                         li.className = 'flex items-center justify-between bg-gray-700/30 p-3 rounded-lg text-sm mb-2 hover-shadow-effect';
+                        li.dataset.id = item.id; // Add data-id for easier selection
+                        li.dataset.editing = 'false'; // Track editing state
+
                         li.innerHTML = `
-                            <div class="flex items-center flex-grow">
+                            <div class="flex items-center flex-grow" id="item-display-${item.id}">
                                 <input type="checkbox" data-id="${item.id}" ${item.inBackpack ? 'checked' : ''} class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer transition-colors duration-200">
                                 <div class="ml-3">
                                     <span class="font-semibold text-white">${item.name}</span>
                                     <span class="text-gray-400"> (${item.quantity})</span>
-                                    <span class="text-indigo-300 text-xs block">${item.type}</span>
+                                    <span class="text-red-300 text-xs block">${item.type}</span>
                                     ${item.cityTag ? `<span class="text-gray-500 text-xs block">Città: ${item.cityTag}</span>` : ''}
                                     ${item.fileUrl ? `<a href="${item.fileUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1">Allegato <i data-lucide="external-link" class="w-3 h-3 inline-block"></i></a>` : ''}
                                 </div>
                             </div>
-                            <button data-id="${item.id}" class="delete-item-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            <div id="item-edit-${item.id}" class="hidden flex-grow ml-3">
+                                <!-- Edit form will go here -->
+                            </div>
+                            <div class="flex items-center">
+                                <button data-id="${item.id}" class="edit-item-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button data-id="${item.id}" class="delete-item-btn ml-2 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         `;
                         backpackListEl.appendChild(li);
                     });
 
-                    // Add event listeners for checkboxes and delete buttons after rendering
+                    // Add event listeners for checkboxes, edit buttons and delete buttons after rendering
                     backpackListEl.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                         checkbox.addEventListener('change', (e) => toggleBackpackItem(e.target.dataset.id, e.target.checked));
+                    });
+                    backpackListEl.querySelectorAll('.edit-item-btn').forEach(button => {
+                        button.addEventListener('click', (e) => editBackpackItem(e.currentTarget.dataset.id, items)); // Pass items array
                     });
                     backpackListEl.querySelectorAll('.delete-item-btn').forEach(button => {
                         button.addEventListener('click', (e) => deleteBackpackItem(e.currentTarget.dataset.id));
@@ -768,19 +783,154 @@
             }
         }
 
+        // Function to handle editing a backpack item
+        function editBackpackItem(itemId, items) {
+            const itemToEdit = items.find(item => item.id === itemId);
+            if (!itemToEdit) return;
+
+            const listItem = document.querySelector(`li[data-id="${itemId}"]`);
+            const displayDiv = listItem.querySelector(`#item-display-${itemId}`);
+            const editDiv = listItem.querySelector(`#item-edit-${itemId}`);
+            const editButton = listItem.querySelector(`.edit-item-btn`);
+            const deleteButton = listItem.querySelector(`.delete-item-btn`);
+
+            if (listItem.dataset.editing === 'true') {
+                return; // Already in editing mode
+            }
+
+            listItem.dataset.editing = 'true';
+            displayDiv.classList.add('hidden');
+            editDiv.classList.remove('hidden');
+            editButton.classList.add('hidden'); // Hide edit button
+            deleteButton.classList.add('hidden'); // Hide delete button during edit
+
+            editDiv.innerHTML = `
+                <div class="flex flex-col gap-2 w-full">
+                    <input type="text" id="edit-name-${itemId}" class="form-input p-2 rounded-md text-sm" value="${itemToEdit.name}">
+                    <select id="edit-type-${itemId}" class="form-input p-2 rounded-md text-sm">
+                        ${['Abbigliamento', 'Elettronica', 'Igiene Personale', 'Documenti', 'Farmaci', 'Varie'].map(type => `<option value="${type}" ${itemToEdit.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+                    </select>
+                    <input type="number" id="edit-quantity-${itemId}" class="form-input p-2 rounded-md text-sm" value="${itemToEdit.quantity}" min="1">
+                    <select id="edit-city-tag-${itemId}" class="form-input p-2 rounded-md text-sm">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <input type="url" id="edit-file-url-${itemId}" class="form-input p-2 rounded-md text-sm" value="${itemToEdit.fileUrl || ''}" placeholder="Link Allegato (URL)">
+                    <div class="flex gap-2 mt-2">
+                        <button data-id="${itemId}" class="save-edit-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Salva</button>
+                        <button data-id="${itemId}" class="cancel-edit-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200">Annulla</button>
+                    </div>
+                </div>
+            `;
+
+            // Populate city tag dropdown for the edit form
+            const editCityTagSelect = document.getElementById(`edit-city-tag-${itemId}`);
+            editCityTagSelect.innerHTML = ''; // Clear existing options
+            const uniqueCities = new Set();
+            tripData.forEach(day => {
+                const city = day.location.split('/')[0].trim();
+                if (city && city !== "Volo di Ritorno") {
+                    uniqueCities.add(city);
+                }
+            });
+
+            const noneOption = document.createElement('option');
+            noneOption.value = 'None';
+            noneOption.textContent = 'Nessuna città specifica';
+            editCityTagSelect.appendChild(noneOption);
+
+            const allOption = document.createElement('option');
+            allOption.value = 'All';
+            allOption.textContent = 'Tutte le città';
+            editCityTagSelect.appendChild(allOption);
+
+            Array.from(uniqueCities).sort().forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                editCityTagSelect.appendChild(option);
+            });
+            editCityTagSelect.value = itemToEdit.cityTag || 'None'; // Set selected value
+
+            listItem.querySelector(`.save-edit-btn`).onclick = () => saveEditedBackpackItem(itemId);
+            listItem.querySelector(`.cancel-edit-btn`).onclick = () => cancelEditBackpackItem(itemId);
+            lucide.createIcons();
+        }
+
+        async function saveEditedBackpackItem(itemId) {
+            const nameInput = document.getElementById(`edit-name-${itemId}`);
+            const typeSelect = document.getElementById(`edit-type-${itemId}`);
+            const quantityInput = document.getElementById(`edit-quantity-${itemId}`);
+            const cityTagSelect = document.getElementById(`edit-city-tag-${itemId}`);
+            const fileUrlInput = document.getElementById(`edit-file-url-${itemId}`);
+
+            const newName = nameInput.value.trim();
+            const newType = typeSelect.value;
+            const newQuantity = parseInt(quantityInput.value, 10);
+            const newCityTag = cityTagSelect.value;
+            const newFileUrl = fileUrlInput.value.trim();
+
+            if (newName && newType && !isNaN(newQuantity) && newQuantity > 0) {
+                const itemRef = doc(db, "backpacks", currentBackpackUser, "items", itemId);
+                await updateDoc(itemRef, {
+                    name: newName,
+                    type: newType,
+                    quantity: newQuantity,
+                    cityTag: newCityTag,
+                    fileUrl: newFileUrl
+                });
+                cancelEditBackpackItem(itemId); // Exit edit mode
+            } else {
+                console.warn("Dati oggetto zaino non validi per la modifica.");
+            }
+        }
+
+        function cancelEditBackpackItem(itemId) {
+            const listItem = document.querySelector(`li[data-id="${itemId}"]`);
+            const displayDiv = listItem.querySelector(`#item-display-${itemId}`);
+            const editDiv = listItem.querySelector(`#item-edit-${itemId}`);
+            const editButton = listItem.querySelector(`.edit-item-btn`);
+            const deleteButton = listItem.querySelector(`.delete-item-btn`);
+
+            listItem.dataset.editing = 'false';
+            displayDiv.classList.remove('hidden');
+            editDiv.classList.add('hidden');
+            editButton.classList.remove('hidden');
+            deleteButton.classList.remove('hidden');
+            editDiv.innerHTML = ''; // Clear edit form content
+        }
+
         // Funzione per cambiare lo zaino attivo
         function switchBackpack(user) {
             currentBackpackUser = user;
             // Rimuovi la classe di evidenziazione da entrambi i pulsanti
-            document.getElementById('select-pino-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
-            document.getElementById('select-pina-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            document.getElementById('select-pino-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            document.getElementById('select-pina-backpack-btn').classList.remove('scale-105', 'ring-2', 'ring-amber-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
 
             // Aggiungi la classe di evidenziazione al pulsante selezionato
             const selectedButton = document.getElementById(`select-${user}-backpack-btn`);
-            selectedButton.classList.add('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            if (user === 'pino') {
+                selectedButton.classList.add('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            } else {
+                selectedButton.classList.add('scale-105', 'ring-2', 'ring-amber-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            }
+            
 
             document.getElementById('current-backpack-name').textContent = user === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
-            loadAndDisplayBackpackItems(); // Ricarica gli oggetti per il nuovo zaino
+
+            // Apply theme class to backpack-view
+            const backpackViewEl = document.getElementById('backpack-view');
+            backpackViewEl.classList.remove('backpack-theme-pino', 'backpack-theme-pina');
+            backpackViewEl.classList.add(`backpack-theme-${user}`);
+
+            loadAndDisplayBackpackItems(); // Reload items for the new backpack
+
+            // If currently on day detail view, re-render backpack widget for today
+            if (!dayDetailView.classList.contains('hidden') && currentActiveDate) {
+                const dayData = tripData.find(d => d.date === currentActiveDate);
+                if (dayData) {
+                    renderTodaysBackpackItems(dayData.location.split('/')[0].trim());
+                }
+            }
         }
 
         // Funzione per popolare la tendina delle città
@@ -821,10 +971,22 @@
             currentBackpackFilter = type;
             // Rimuovi la classe di evidenziazione da tutti i pulsanti di filtro
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('bg-purple-500', 'ring-2', 'ring-purple-300');
+                btn.classList.remove('bg-red-500', 'ring-2', 'ring-red-300'); // Changed from purple
             });
             // Aggiungi la classe di evidenziazione al pulsante selezionato
-            document.getElementById(`filter-${type.toLowerCase().replace(/\s/g, '-')}-btn`).classList.add('bg-purple-500', 'ring-2', 'ring-purple-300');
+            const selectedFilterBtn = document.getElementById(`filter-${type.toLowerCase().replace(/\s/g, '-')}-btn`);
+            selectedFilterBtn.classList.add('bg-red-500', 'ring-2', 'ring-red-300'); // Changed from purple
+            
+            // Apply backpack theme highlight to the filter button if a theme is active
+            const backpackViewEl = document.getElementById('backpack-view');
+            if (backpackViewEl.classList.contains('backpack-theme-pino')) {
+                selectedFilterBtn.classList.add('bg-blue-500', 'ring-blue-300');
+                selectedFilterBtn.classList.remove('bg-red-500', 'ring-red-300');
+            } else if (backpackViewEl.classList.contains('backpack-theme-pina')) {
+                selectedFilterBtn.classList.add('bg-amber-500', 'ring-amber-300');
+                selectedFilterBtn.classList.remove('bg-red-500', 'ring-red-300');
+            }
+
             loadAndDisplayBackpackItems(); // Ricarica gli oggetti con il filtro applicato
         }
 
@@ -833,14 +995,28 @@
             const todaysBackpackEl = document.getElementById('todays-backpack-widget');
             todaysBackpackEl.innerHTML = '<div class="text-gray-400">Caricamento oggetti dello zaino...</div>';
 
-            const backpackItemsCol = collection(db, "backpacks", currentBackpackUser, "items");
-            const snapshot = await getDocs(backpackItemsCol);
-            let items = [];
-            snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+            console.log("Rendering Todays Backpack Items for location:", currentLocation);
 
-            const relevantItems = items.filter(item => 
-                item.inBackpack && (item.cityTag === currentLocation || item.cityTag === 'All')
-            );
+            // Fetch items for both Pino and Pina's backpacks
+            const pinoItemsSnapshot = await getDocs(collection(db, "backpacks", "pino", "items"));
+            const pinaItemsSnapshot = await getDocs(collection(db, "backpacks", "pina", "items"));
+
+            let allItems = [];
+            pinoItemsSnapshot.forEach(doc => allItems.push({ id: doc.id, user: 'pino', ...doc.data() }));
+            pinaItemsSnapshot.forEach(doc => allItems.push({ id: doc.id, user: 'pina', ...doc.data() }));
+
+            console.log("All backpack items fetched:", allItems);
+
+            const relevantItems = allItems.filter(item => {
+                const isRelevant = item.inBackpack && (item.cityTag === currentLocation || item.cityTag === 'All');
+                if (!isRelevant) {
+                    console.log(`Item "${item.name}" (inBackpack: ${item.inBackpack}, cityTag: ${item.cityTag}) not relevant for "${currentLocation}"`);
+                }
+                return isRelevant;
+            });
+
+            console.log("Relevant backpack items for today:", relevantItems);
+
 
             if (relevantItems.length === 0) {
                 todaysBackpackEl.innerHTML = '<div class="text-gray-400">Nessun oggetto utile per oggi.</div>';
@@ -849,8 +1025,8 @@
                 relevantItems.forEach(item => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'flex items-start gap-3 bg-gray-700/30 p-3 rounded-lg text-sm mb-2';
-                    let content = `<div class="font-medium text-gray-100">${item.name} (${item.quantity})</div>`;
-                    if (item.type) content += `<div class="text-indigo-300 text-xs">${item.type}</div>`;
+                    let content = `<div class="font-medium text-white">${item.name} (${item.quantity})</div>`;
+                    if (item.type) content += `<div class="text-red-300 text-xs">${item.type}</div>`;
                     if (item.fileUrl) {
                         const fileExtension = item.fileUrl.split('.').pop().toLowerCase();
                         if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension)) {
@@ -887,10 +1063,10 @@
             
             // Imposta il nome dello zaino iniziale e seleziona il pulsante di Pino
             document.getElementById('current-backpack-name').textContent = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
-            document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-purple-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+            // Initial theme application
+            document.getElementById('backpack-view').classList.add(`backpack-theme-${currentBackpackUser}`);
+            document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
 
-            // Popola la tendina delle città
-            populateCityTagDropdown();
 
             // Inizializza i filtri dello zaino
             document.getElementById('filter-tutti-btn').onclick = () => filterBackpackItems('Tutti');
@@ -902,7 +1078,7 @@
             document.getElementById('filter-varie-btn').onclick = () => filterBackpackItems('Varie');
 
             // Applica il filtro iniziale "Tutti"
-            document.getElementById('filter-tutti-btn').classList.add('bg-purple-500', 'ring-2', 'ring-purple-300');
+            filterBackpackItems('Tutti'); // This will also apply the correct theme highlight
 
 
             lucide.createIcons();
@@ -911,20 +1087,164 @@
     </script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #111827; padding-top: 64px; } /* Changed margin-top to padding-top */
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #f8f8f8; padding-top: 64px; } /* Changed to dark background */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+        ::-webkit-scrollbar-track { background: #1f2937; } /* Dark scrollbar track */
+        ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 4px; } /* Red scrollbar thumb */
+        ::-webkit-scrollbar-thumb:hover { background: #dc2626; } /* Darker red on hover */
+
+        /* General dark components on dark background - adjusted text colors */
+        .bg-gray-800 {
+            background-color: #2d3748; /* Dark blue-gray for components */
+            color: #f8f8f8; /* Light text inside dark components */
+        }
+        .bg-gray-700\/50 {
+            background-color: rgba(45, 55, 72, 0.5); /* Semi-transparent dark for table header */
+        }
+        .border-gray-700 {
+            border-color: #4a5568;
+        }
+        .text-gray-300 {
+            color: #cbd5e0; /* Lighter gray for secondary text inside dark components */
+        }
+        .text-gray-400 {
+            color: #a0aec0; /* Even lighter gray */
+        }
+        .text-gray-500 {
+            color: #718096; /* For dimming past days */
+        }
+        .text-white {
+            color: #f8f8f8; /* Ensure white text inside dark components */
+        }
+
+        /* Form inputs */
         .form-input {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #d1d5db;
+            background-color: #4a5568; /* Darker input background */
+            border-color: #6a768f;
+            color: #f8f8f8;
         }
         .form-input:focus {
-            --tw-ring-color: #6366f1;
-            border-color: #6366f1;
+            --tw-ring-color: #ef4444; /* Red focus ring */
+            border-color: #ef4444;
         }
+
+        /* Buttons - Main Red Theme */
+        .bg-indigo-600, .bg-purple-600, .bg-yellow-600 { /* Changed to red for consistency */
+            background-color: #ef4444; /* Red */
+        }
+        .hover\:bg-indigo-700:hover, .hover\:bg-purple-700:hover, .hover\:bg-yellow-700:hover {
+            background-color: #dc2626; /* Darker red on hover */
+        }
+        .text-indigo-400 { /* For date in day detail */
+            color: #ef4444; /* Red */
+        }
+        .text-red-300 { /* For item type in backpack */
+            color: #f87171; /* Lighter red */
+        }
+        .text-red-400 { /* For error messages */
+            color: #ef4444; /* Red */
+        }
+        .text-red-200 { /* For notes */
+            color: #fca5a5; /* Even lighter red */
+        }
+
+        .bg-green-600 { /* Keep green for add expense */
+            background-color: #22c55e;
+        }
+        .hover\:bg-green-700:hover {
+            background-color: #16a34a;
+        }
+        .bg-blue-600 { /* Keep blue for current weather button */
+            background-color: #3b82f6;
+        }
+        .hover\:bg-blue-700:hover {
+            background-color: #2563eb;
+        }
+        .bg-gray-600 { /* For keyboard toggle */
+            background-color: #4a5568;
+        }
+        .hover\:bg-gray-700:hover {
+            background-color: #2d3748;
+        }
+        .bg-gray-500 { /* For clear translation */
+            background-color: #6a768f;
+        }
+        .hover\:bg-gray-600:hover {
+            background-color: #4a5568;
+        }
+
+
+        /* Specific highlights */
+        .bg-green-700\/30 { /* Current day highlight in itinerary table */
+            background-color: rgba(239, 68, 68, 0.1); /* Light red transparent */
+        }
+        .border-green-500 { /* Border for current day highlight */
+            border-color: #ef4444; /* Red border */
+        }
+        .text-green-400 { /* For checkmarks and ticket icons */
+            color: #4ade80; /* Keep green */
+        }
+        .text-blue-400 { /* For links */
+            color: #60a5fa; /* Keep blue */
+        }
+
+        /* Backpack specific themes */
+        #backpack-view.backpack-theme-pino {
+            /* Blue theme */
+            --backpack-primary: #3b82f6; /* Blue 500 */
+            --backpack-secondary: #2563eb; /* Blue 600 */
+            --backpack-highlight: #60a5fa; /* Blue 400 */
+            --backpack-text: #e0f2fe; /* Blue 100 */
+        }
+
+        #backpack-view.backpack-theme-pina {
+            /* Yellow/Ochre theme */
+            --backpack-primary: #d97706; /* Orange 700 (Ochre-like) */
+            --backpack-secondary: #c2410c; /* Orange 800 */
+            --backpack-highlight: #fbbf24; /* Amber 400 */
+            --backpack-text: #fffbeb; /* Amber 50 */
+        }
+
+        /* Apply theme variables to backpack elements */
+        #backpack-view .bg-purple-700 { /* Default for backpack buttons */
+            background-color: var(--backpack-primary);
+        }
+        #backpack-view .hover\:bg-purple-800:hover {
+            background-color: var(--backpack-secondary);
+        }
+        #backpack-view .text-purple-400 { /* Icons in backpack section */
+            color: var(--backpack-highlight);
+        }
+        #backpack-view #current-backpack-name {
+            color: var(--backpack-highlight);
+        }
+        
+        /* Filter buttons styling */
+        #backpack-view .filter-btn {
+            background-color: var(--backpack-primary); /* Default to primary theme color */
+            color: var(--backpack-text); /* Default to theme text color */
+        }
+        #backpack-view .filter-btn.bg-red-500 { /* Active filter button, overridden by theme if active */
+            background-color: var(--backpack-highlight);
+            box-shadow: 0 0 0 2px var(--backpack-highlight), 0 0 0 4px var(--backpack-secondary);
+            border-color: transparent; /* Remove default border */
+        }
+        /* Specific ring colors for backpack select buttons */
+        #select-pino-backpack-btn.ring-blue-400 {
+            --tw-ring-color: #60a5fa; /* Blue highlight */
+        }
+        #select-pina-backpack-btn.ring-amber-400 {
+            --tw-ring-color: #fbbf24; /* Amber highlight */
+        }
+
+
+        /* Backpack selection buttons highlighting */
+        #select-pino-backpack-btn, #select-pina-backpack-btn {
+            transition: all 0.3s ease-in-out;
+            position: relative; /* Needed for z-index */
+        }
+        /* No specific ring-purple-400 anymore, using direct blue/amber */
+
         /* Animazioni per le transizioni di vista */
         .view-transition {
             transition: opacity 0.5s ease-in-out;
@@ -954,7 +1274,7 @@
         }
     </style>
 </head>
-<body class="text-gray-300">
+<body class="text-gray-300"> <!-- Changed to text-gray-300 for general text on dark background -->
 
     <div id="login-container" class="w-full max-w-sm">
         <div class="bg-gray-800 shadow-2xl rounded-lg p-8 border border-gray-700">
@@ -970,7 +1290,7 @@
                 </div>
                 <div id="login-error" class="text-red-400 text-xs italic mb-4 h-4"></div>
                 <div class="flex items-center justify-between">
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
+                    <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
                         Accedi
                     </button>
                 </div>
@@ -978,15 +1298,15 @@
         </div>
     </div>
 
-    <div id="app-container" class="w-full h-full bg-gray-900 hidden">
+    <div id="app-container" class="w-full h-full bg-gray-900 hidden"> <!-- Changed to bg-gray-900 -->
         <!-- Fixed Navigation Bar -->
         <nav class="fixed top-0 left-0 right-0 bg-gray-800 p-4 border-b border-gray-700 z-50 flex justify-between items-center shadow-lg">
             <div class="flex items-center gap-4">
-                <button id="nav-itinerary-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                <button id="nav-itinerary-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="list-checks" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Itinerario</span>
                 </button>
-                <button id="nav-backpack-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                <button id="nav-backpack-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="backpack" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Zaino</span>
                 </button>
@@ -1001,8 +1321,8 @@
         <div id="home-view" class="view-transition opacity-0">
             <header class="p-4 sm:p-6 flex justify-center items-center flex-col sm:flex-row">
                 <div class="text-center">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1>
-                    <p class="text-gray-400">Giappone 2025</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1> <!-- Changed to text-white -->
+                    <p class="text-gray-400">Giappone 2025</p> <!-- Changed to text-gray-400 for better contrast -->
                 </div>
             </header>
             <main class="p-4 sm:p-6">
@@ -1030,24 +1350,24 @@
         <!-- Day Detail View -->
         <div id="day-detail-view" class="view-transition opacity-0 hidden">
             <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-center items-center relative">
-                <button id="prev-day-btn" class="absolute left-4 p-2 rounded-full bg-transparent text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/30">
+                <button id="prev-day-btn" class="absolute left-4 p-2 rounded-full bg-transparent text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/30"> <!-- Changed to text-white and hover -->
                     <i data-lucide="chevron-left" class="w-6 h-6"></i>
                 </button>
                 <div class="flex-grow text-center mx-10">
-                    <h2 id="location" class="text-3xl font-bold text-white"></h2>
-                    <p id="date" class="text-indigo-400"></p>
+                    <h2 id="location" class="text-3xl font-bold text-white"></h2> <!-- Changed to text-white -->
+                    <p id="date" class="text-red-600"></p>
                     <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center items-center mt-2">
                         <div>
-                            <div id="local-time" class="text-2xl font-semibold text-white"></div>
-                            <p class="text-sm text-gray-400">Ora locale (Giappone)</p>
+                            <div id="local-time" class="text-2xl font-semibold text-white"></div> <!-- Changed to text-white -->
+                            <p class="text-sm text-gray-400">Ora locale (Giappone)</p> <!-- Changed to text-gray-400 -->
                         </div>
                         <div>
-                            <div id="italian-local-time" class="text-2xl font-semibold text-white"></div>
-                            <p class="text-sm text-gray-400">Ora locale (Italia)</p>
+                            <div id="italian-local-time" class="text-2xl font-semibold text-white"></div> <!-- Changed to text-white -->
+                            <p class="text-sm text-gray-400">Ora locale (Italia)</p> <!-- Changed to text-gray-400 -->
                         </div>
                     </div>
                 </div>
-                <button id="next-day-btn" class="absolute right-4 p-2 rounded-full bg-transparent text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/30">
+                <button id="next-day-btn" class="absolute right-4 p-2 rounded-full bg-transparent text-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700/30"> <!-- Changed to text-white and hover -->
                     <i data-lucide="chevron-right" class="w-6 h-6"></i>
                 </button>
             </header>
@@ -1056,16 +1376,16 @@
                 <img id="day-detail-title-image" src="" alt="Immagine del luogo" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo</h3><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-red-400"></i>Meteo</h3><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
                             <i data-lucide="map-pin" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Meteo attuale</span>
                         </button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-indigo-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-indigo-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-indigo-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-indigo-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="backpack" class="w-5 h-5 text-purple-400"></i>Lo Zaino di Oggi</h3><div id="todays-backpack-widget" class="space-y-2"></div></div>
-                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-indigo-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-red-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Lo Zaino di Oggi</h3><div id="todays-backpack-widget" class="space-y-2"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
                         <i data-lucide="keyboard" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Tastiera: Italiano</span>
                         </button>
@@ -1082,8 +1402,8 @@
         <div id="backpack-view" class="view-transition opacity-0 hidden">
             <header class="p-4 sm:p-6 flex justify-center items-center flex-col sm:flex-row">
                 <div class="text-center">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Il Mio Zaino</h1>
-                    <p class="text-gray-400">Gestisci gli oggetti per il viaggio</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Il Mio Zaino</h1> <!-- Changed to text-white -->
+                    <p class="text-gray-400">Gestisci gli oggetti per il viaggio</p> <!-- Changed to text-gray-400 -->
                 </div>
             </header>
             <main class="p-4 sm:p-6">
