@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viaggio in Giappone 2025</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase -->
+    <script type="module">
+        // Importa le funzioni necessarie dai moduli Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // =================================================================================
+        // CONFIGURAZIONE INIZIALE
+        // =================================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDF6KbJueQwWaeEVGRfI2AKqJ8or-AVjIk",
+            authDomain: "giappini2025.firebaseapp.com",
+            projectId: "giappini2025",
+            storageBucket: "giappini2025.appspot.com",
+            messagingSenderId: "733326492471",
+            appId: "1:733326492471:web:09c93b1a6e5d4543b550b2",
+            measurementId: "G-D9LKF6YET3"
+        };
+        // Incolla qui la tua API Key di OpenWeatherMap
+        const OPENWEATHER_API_KEY = 'tua_api_key_openweathermap';
+        // Incolla qui la tua API Key per Gemini (Generative Language). Puoi ottenere una chiave API da Google AI Studio o dalla console Google Cloud.
+        const GEMINI_API_KEY = 'AIzaSyCK_oBptPDRWiutrS4VnlZGBBOM272olQo';
+        // Definisci il modello Gemini da utilizzare. 'gemini-1.5-flash' è un buon punto di partenza per il tier gratuito e per la velocità.
+        const GEMINI_MODEL_NAME = 'gemini-2.5-flash-lite'; // Puoi cambiarlo a 'gemini-1.5-pro' o altri se necessario e se rientrano nel tuo piano.
+        // =================================================================================
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const initialTripData = [
+            { date: "2025-08-23", location: "Tokyo", accommodation: { name: "APA Hotel Asakusa Kuramae Kita", details: "212€ (35.073 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo" }, travel: [{ type: 'Aereo', description: 'NARITA AIRPORT -> TOKYO STATION (€22 a persona)'}], events: [{name: 'Museo Nazionale di Tokyo', details: 'Prenotare dal 23.06'}, {name: 'Tokyo Tower', details: 'Prenotare dal 23.06', link: 'https://ars-tokyotower.linktivity.io/activity/en/LINKTIVITY-UP6NK'}] },
+            { date: "2025-08-24", location: "Tokyo", accommodation: { name: "APA Hotel Asakusa Kuramae Kita", mapLink: "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo" }, travel: [], events: [] },
+            { date: "2025-08-25", location: "Tokyo", accommodation: { name: "APA Hotel Asakusa Kuramae Kita", mapLink: "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo" }, travel: [], events: [] },
+            { date: "2025-08-26", location: "Ryokan (Takaragawa Onsen)", accommodation: { name: "Takaragawa Onsen Ousenkaku", details: "220€ (30.600 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=Takaragawa+Onsen+Ousenkaku" }, travel: [{ type: 'Treno', description: 'TOKYO -> JOMO-KOGEN (€37 a persona, ~1h)'}, {type: 'Navetta', description: 'Jomo-kogen -> Hotel (45min, da concordare)'}], events: [] },
+            { date: "2025-08-27", location: "Kanazawa", accommodation: { name: "Tokyu Stay Kanazawa", details: "109€ (17.820 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa" }, travel: [{ type: 'Treno', description: 'JOMO-KOGEN -> TOKYO (€37 a persona, ~1h)'}, { type: 'Shinkansen', description: 'TOKYO -> KANAZAWA (€97 a persona, 2h30-3h)'}], events: [] },
+            { date: "2025-08-28", location: "Kanazawa", accommodation: { name: "Tokyu Stay Kanazawa", mapLink: "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa" }, travel: [], events: [] },
+            { date: "2025-08-29", location: "Shirakawa-go", accommodation: { name: "Minshuku Goyomon", details: "171€ (28.000 YEN) SOLO CASH", mapLink: "https://www.google.com/maps/search/?api=1&query=Minshuku+Goyomon,Shirakawa" }, travel: [{ type: 'Autobus', description: "KANAZAWA -> SHIRAKAWA-GO (1h25, 32,78€) Partenza 09:40. Prenotazione: 08032040671. STAMPARE E-MAIL!", link: 'https://www.tabi-nanto.jp/en/nantokanazawasen/time.php'}], events: [] },
+            { date: "2025-08-30", location: "Kyoto", accommodation: { name: "Wander Kyoto Nanajo", details: "238€ (38.946 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo" }, travel: [{ type: 'Autobus', description: 'Ainokura -> Shirakawa-go (09:28-10:20)'}, {type: 'Autobus', description: 'Shirakawa-go -> Kanazawa (10:55-12:20, 32,78€). Prenotazione: 08032042981. STAMPARE E-MAIL!'}, {type: 'Treno', description: 'Kanazawa -> Kyoto (13:05-15:09, ~104€). COMPRARE BIGLIETTI'}], events: [] },
+            { date: "2025-08-31", location: "Kyoto", accommodation: { name: "Wander Kyoto Nanajo", mapLink: "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo" }, travel: [], events: [] },
+            { date: "2025-09-01", location: "Kyoto", accommodation: { name: "Wander Kyoto Nanajo", mapLink: "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo" }, travel: [], events: [] },
+            { date: "2025-09-02", location: "Osaka", accommodation: { name: "MEANDER Osaka", details: "205,53€ (33.516 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka" }, travel: [{ type: 'Treno', description: 'KYOTO -> OSAKA (€9 a persona, 30min)'}], events: [] },
+            { date: "2025-09-03", location: "Nara / Osaka", accommodation: { name: "MEANDER Osaka", mapLink: "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka" }, travel: [{ type: 'Treno', description: 'OSAKA <-> NARA'}], events: [] },
+            { date: "2025-09-04", location: "Tokyo", accommodation: { name: "APA Hotel Asakusa Kuramae Kita", details: "197€ (32.328 YEN)", mapLink: "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo" }, travel: [{ type: 'Treno', description: 'OSAKA -> TOKYO'}], events: [] },
+            { date: "2025-09-05", location: "Tokyo", accommodation: { name: "APA Hotel Asakusa Kuramae Kita", mapLink: "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo" }, travel: [], events: [] },
+            { date: "2025-09-06", location: "Volo di Ritorno", accommodation: { name: "-" }, travel: [{ type: 'Aereo', description: 'TOKYO -> ROMA'}], events: [] },
+        ];
+
+        let tripData = [];
+        let currentDayUnsubscribeNotes = null;
+        let currentDayUnsubscribeExpenses = null;
+        let itineraryUnsubscribe = null;
+        let clockInterval = null;
+
+        // Elementi UI
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app-container');
+        const homeView = document.getElementById('home-view');
+        const dayDetailView = document.getElementById('day-detail-view');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutButton = document.getElementById('logout-btn');
+        const backToHomeButton = document.getElementById('back-to-home-btn');
+
+        // Logica di autenticazione e navigazione
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                loginContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                setupInitialItinerary().then(loadItineraryAndInitApp);
+            } else {
+                loginContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                if (itineraryUnsubscribe) itineraryUnsubscribe();
+                if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
+                if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
+                if(clockInterval) clearInterval(clockInterval);
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = loginForm.email.value;
+            const password = loginForm.password.value;
+            loginError.textContent = '';
+            signInWithEmailAndPassword(auth, email, password)
+                .catch(error => {
+                    console.error("Login failed:", error);
+                    loginError.textContent = 'Credenziali non valide. Riprova.';
+                });
+        });
+
+        logoutButton.addEventListener('click', () => signOut(auth));
+        backToHomeButton.addEventListener('click', () => navigateTo('home'));
+
+        function navigateTo(viewName) {
+            if (viewName === 'home') {
+                homeView.classList.remove('hidden');
+                dayDetailView.classList.add('hidden');
+            } else {
+                homeView.classList.add('hidden');
+                dayDetailView.classList.remove('hidden');
+            }
+        }
+
+        async function setupInitialItinerary() {
+            const itineraryCol = collection(db, 'itinerary');
+            const snapshot = await getDocs(itineraryCol);
+            if (snapshot.empty) {
+                console.log("Populating itinerary...");
+                const batch = writeBatch(db);
+                initialTripData.forEach(day => batch.set(doc(db, "itinerary", day.date), day));
+                await batch.commit();
+            }
+        }
+        
+        function loadItineraryAndInitApp() {
+            const itineraryCol = collection(db, 'itinerary');
+            if (itineraryUnsubscribe) itineraryUnsubscribe();
+            
+            itineraryUnsubscribe = onSnapshot(query(itineraryCol), (snapshot) => {
+                tripData = [];
+                snapshot.forEach(doc => tripData.push(doc.data()));
+                tripData.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                renderHomeView();
+                navigateTo('home');
+            });
+        }
+        
+        function renderHomeView() {
+            const itineraryTableBody = document.getElementById('itinerary-table-body');
+            itineraryTableBody.innerHTML = '';
+            tripData.forEach(day => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200';
+                row.dataset.date = day.date;
+                
+                const dayDate = new Date(day.date);
+                const isPast = dayDate < new Date().setHours(0,0,0,0);
+
+                row.innerHTML = `
+                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}</td>
+                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${day.location}</td>
+                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${day.accommodation.name}</td>
+                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isPast ? 'text-gray-600' : 'text-indigo-400'}"></i></td>
+                `;
+                row.addEventListener('click', () => {
+                    renderDayDetailView(day.date);
+                    navigateTo('day-detail');
+                });
+                itineraryTableBody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function renderDayDetailView(dateString) {
+            const dayData = tripData.find(d => d.date === dateString);
+            if (!dayData) return;
+
+            if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
+            if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
+            if (clockInterval) clearInterval(clockInterval);
+
+            document.getElementById('location').textContent = dayData.location;
+            document.getElementById('date').textContent = new Date(dayData.date).toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            getWeather(dayData.location.split('/')[0].trim());
+            updateClock('Asia/Tokyo');
+
+            const accommodationEl = document.getElementById('accommodation-widget');
+            accommodationEl.innerHTML = `<div class="font-semibold text-gray-100">${dayData.accommodation.name}</div>${dayData.accommodation.details ? `<div class="text-sm text-gray-400">${dayData.accommodation.details}</div>` : ''}${dayData.accommodation.mapLink ? `<a href="${dayData.accommodation.mapLink}" target="_blank" class="text-indigo-400 hover:underline text-sm flex items-center gap-1 mt-1"><i data-lucide="map-pin" class="w-4 h-4"></i>Vedi sulla mappa</a>` : ''}`;
+            
+            const travelEventsEl = document.getElementById('travel-events-widget');
+            travelEventsEl.innerHTML = '';
+            if (!dayData.travel && !dayData.events || dayData.travel.length === 0 && dayData.events.length === 0) {
+                travelEventsEl.innerHTML = `<div class="text-gray-400">Nessuno spostamento o evento principale per oggi.</div>`;
+            }
+            if(dayData.travel) dayData.travel.forEach(item => {
+                travelEventsEl.innerHTML += `<div class="flex items-start gap-3"><i data-lucide="train-front" class="w-5 h-5 text-indigo-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-gray-100">${item.type}</div><div class="text-sm text-gray-300">${item.description}</div></div></div>`;
+            });
+            if(dayData.events) dayData.events.forEach(item => {
+                travelEventsEl.innerHTML += `<div class="flex items-start gap-3 mt-3"><i data-lucide="ticket" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i><div><div class="font-medium text-gray-100">${item.name}</div><div class="text-sm text-gray-300">${item.details}</div>${item.link ? `<a href="${item.link}" target="_blank" class="text-indigo-400 hover:underline text-sm">Link</a>` : ''}</div></div>`;
+            });
+
+            loadAndDisplayNotes(dateString);
+            loadAndDisplayExpenses(dateString);
+            
+            document.getElementById('save-note-btn').onclick = () => saveNote(dateString);
+            document.getElementById('save-expense-btn').onclick = () => saveExpense(dateString);
+            document.getElementById('translate-btn').onclick = () => translate();
+
+            lucide.createIcons();
+        }
+        
+        async function getWeather(city) {
+            const weatherWidget = document.getElementById('weather-widget');
+            weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento...</div>`;
+            if (!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY === 'tua_api_key_openweathermap') {
+                weatherWidget.innerHTML = `<div class="text-yellow-400">API Key di OpenWeatherMap non configurata.</div>`;
+                return;
+            }
+            try {
+                const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city},JP&appid=${OPENWEATHER_API_KEY}&units=metric&lang=it`);
+                if (!response.ok) throw new Error('City not found or API error');
+                const data = await response.json();
+                weatherWidget.innerHTML = `<div class="flex items-center gap-4"><img src="https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png" alt="weather icon" class="w-16 h-16 -my-2"><div><div class="text-3xl font-bold text-white">${Math.round(data.main.temp)}°C</div><div class="text-gray-300 capitalize">${data.weather[0].description}</div></div><div class="text-sm text-gray-400"><div>Umidità: ${data.main.humidity}%</div><div>Vento: ${data.wind.speed} m/s</div></div></div>`;
+            } catch (error) {
+                weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile.</div>`;
+            }
+        }
+
+        function updateClock(timezone) {
+            const clockEl = document.getElementById('local-time');
+            clockInterval = setInterval(() => {
+                clockEl.textContent = new Date().toLocaleTimeString('it-IT', { timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }, 1000);
+        }
+
+        function loadAndDisplayNotes(dateString) {
+            const notesListEl = document.getElementById('notes-list');
+            notesListEl.innerHTML = '<li>Caricamento...</li>';
+            const notesQuery = query(collection(db, "trip-notes"), where("date", "==", dateString));
+            currentDayUnsubscribeNotes = onSnapshot(notesQuery, (snapshot) => {
+                notesListEl.innerHTML = '';
+                let notes = [];
+                snapshot.forEach(doc => notes.push(doc.data()));
+                notes.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+                if (notes.length === 0) {
+                    notesListEl.innerHTML = '<li class="text-gray-400">Nessun appunto.</li>';
+                } else {
+                    notes.forEach(note => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-yellow-400/10 p-3 rounded-lg text-sm text-yellow-200';
+                        li.textContent = note.text;
+                        notesListEl.appendChild(li);
+                    });
+                }
+            });
+        }
+
+        async function saveNote(dateString) {
+            const input = document.getElementById('note-input');
+            if (input.value.trim()) {
+                await addDoc(collection(db, "trip-notes"), { date: dateString, text: input.value.trim(), createdAt: new Date() });
+                input.value = '';
+            }
+        }
+
+        function loadAndDisplayExpenses(dateString) {
+            const expensesListEl = document.getElementById('expenses-list');
+            const totalExpensesEl = document.getElementById('total-expenses');
+            expensesListEl.innerHTML = '<li>Caricamento...</li>';
+            const expensesQuery = query(collection(db, "trip-expenses"), where("date", "==", dateString));
+            currentDayUnsubscribeExpenses = onSnapshot(expensesQuery, (snapshot) => {
+                expensesListEl.innerHTML = '';
+                let total = 0;
+                let expenses = [];
+                snapshot.forEach(doc => expenses.push(doc.data()));
+                expenses.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+                if (expenses.length === 0) {
+                    expensesListEl.innerHTML = '<li class="text-gray-400">Nessuna spesa.</li>';
+                } else {
+                    expenses.forEach(expense => {
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center text-sm text-gray-300';
+                        li.innerHTML = `<span>${expense.description}</span> <span class="font-semibold text-gray-100">${expense.amount} ¥</span>`;
+                        expensesListEl.appendChild(li);
+                        total += parseFloat(expense.amount);
+                    });
+                }
+                totalExpensesEl.textContent = `${total.toLocaleString('ja-JP')} ¥`;
+            });
+        }
+
+        async function saveExpense(dateString) {
+            const descInput = document.getElementById('expense-description');
+            const amountInput = document.getElementById('expense-amount');
+            if (descInput.value.trim() && amountInput.value.trim() && !isNaN(amountInput.value)) {
+                await addDoc(collection(db, "trip-expenses"), { date: dateString, description: descInput.value.trim(), amount: parseFloat(amountInput.value), createdAt: new Date() });
+                descInput.value = '';
+                amountInput.value = '';
+            }
+        }
+        
+        async function translate() {
+            const inputEl = document.getElementById('translate-input-it');
+            const outputEl = document.getElementById('translate-output-jp');
+            const textToTranslate = inputEl.value.trim();
+            if (!textToTranslate) return;
+
+            outputEl.value = "Traduzione in corso...";
+            
+            // Verifica se la chiave API di Gemini è configurata
+            if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+                outputEl.value = "Errore: La chiave API per Gemini non è configurata. Incolla la tua chiave API nel codice.";
+                return;
+            }
+
+            // Determina la lingua di destinazione in base alla presenza di caratteri giapponesi nell'input
+            const isJapanese = /[一-龠]+|[ぁ-ゔ]+|[ァ-ヴー]+/.test(textToTranslate);
+            const targetLanguage = isJapanese ? "Italiano" : "Giapponese";
+            const prompt = `Traduci questo in ${targetLanguage}: "${textToTranslate}" Rispondi esclusivamente con la traduzione, senza aggiungere altro.`; 
+
+            try {
+                // Costruisci l'URL dell'API utilizzando il nome del modello definito
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${GEMINI_API_KEY}`;
+                
+                // Prepara il payload per la richiesta API, simile alla struttura dell'SDK
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }]
+                };
+
+                // Effettua la chiamata API
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                // Gestione degli errori dalla risposta API
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    console.error("API Error Body:", errorBody);
+                    throw new Error(`API Error: ${errorBody.error.message}`);
+                }
+
+                // Parsifica la risposta JSON
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0) {
+                    outputEl.value = result.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error("Nessuna traduzione valida ricevuta.");
+                }
+
+            } catch (error) {
+                console.error("Translation error:", error);
+                outputEl.value = `Errore: ${error.message}. Assicurati che l'API "Generative Language" sia abilitata nel tuo progetto Google Cloud e che la chiave API sia valida e con le giuste restrizioni.`;
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+        .form-input {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #d1d5db;
+        }
+        .form-input:focus {
+            --tw-ring-color: #6366f1;
+            border-color: #6366f1;
+        }
+    </style>
+</head>
+<body class="text-gray-300">
+
+    <div id="login-container" class="w-full max-w-sm">
+        <div class="bg-gray-800 shadow-2xl rounded-lg p-8 border border-gray-700">
+            <h2 class="text-2xl font-bold text-center mb-6 text-white">Il Tuo Viaggio in Giappone</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-400 text-sm font-bold mb-2">Email</label>
+                    <input type="email" id="email" name="email" class="form-input shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:ring-2" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-400 text-sm font-bold mb-2">Password</label>
+                    <input type="password" id="password" name="password" class="form-input shadow appearance-none border rounded w-full py-2 px-3 mb-3 leading-tight focus:outline-none focus:ring-2" required>
+                </div>
+                <div id="login-error" class="text-red-400 text-xs italic mb-4 h-4"></div>
+                <div class="flex items-center justify-between">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
+                        Accedi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-container" class="w-full h-full bg-gray-900 hidden">
+        <!-- Home View -->
+        <div id="home-view">
+            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1>
+                    <p class="text-gray-400">Giappone 2025</p>
+                </div>
+                <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Logout</span>
+                </button>
+            </header>
+            <main class="p-4 sm:p-6">
+                <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-700/50">
+                            <tr>
+                                <th class="p-4 font-semibold text-white">Data</th>
+                                <th class="p-4 font-semibold text-white">Luogo</th>
+                                <th class="p-4 font-semibold text-white">Alloggio</th>
+                                <th class="p-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="itinerary-table-body">
+                            <!-- Le righe verranno popolate da JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+
+        <!-- Day Detail View -->
+        <div id="day-detail-view" class="hidden">
+            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center">
+                <button id="back-to-home-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Itinerario</span>
+                </button>
+                 <div class="text-right">
+                    <div id="local-time" class="text-2xl font-semibold text-white"></div>
+                    <p class="text-sm text-gray-400">Ora locale (Giappone)</p>
+                </div>
+            </header>
+            <main class="p-4 sm:p-6">
+                <div class="bg-gray-800/50 p-4 sm:p-6 rounded-lg mb-6 border border-gray-700">
+                    <h2 id="location" class="text-3xl font-bold text-white"></h2>
+                    <p id="date" class="text-indigo-400"></p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-indigo-400"></i>Meteo</h3><div id="weather-widget"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-indigo-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-indigo-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-indigo-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-indigo-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
+                    <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-indigo-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..."></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
