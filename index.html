@@ -14,8 +14,10 @@
     <script type="module">
         // Importa le funzioni necessarie dai moduli Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Importazioni corrette per Firestore
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Importazioni corrette per Auth
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // =================================================================================
         // CONFIGURAZIONE INIZIALE
@@ -1361,7 +1363,7 @@
                 notesInput.value = '';
                 showCustomAlert('Luogo pinnato aggiunto con successo!');
             } else {
-                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine) e seleziona una città.');
+                showCustomAlert('Per favorire, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine) e seleziona una città.');
             }
         }
 
