@@ -14,8 +14,8 @@
     <script type="module">
         // Importa le funzioni necessarie dai moduli Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =================================================================================
         // CONFIGURAZIONE INIZIALE
@@ -351,7 +351,7 @@
             if (prevDayBtn) {
                 if (currentIndex > 0) {
                     prevDayBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1); // Corrected for previous day
+                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1);
                 } else {
                     prevDayBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     prevDayBtn.onclick = null;
@@ -361,7 +361,7 @@
             if (nextDayBtn) {
                 if (currentIndex < tripData.length - 1) {
                     nextDayBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    nextDayBtn.onclick = () => navigateDay(currentIndex + 1); // Corrected for next day
+                    nextDayBtn.onclick = () => navigateDay(currentIndex + 1);
                 } else {
                     nextDayBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     nextDayBtn.onclick = null;
@@ -1118,6 +1118,7 @@
 
             // Add a click listener to the map to get coordinates for adding a new place
             map.addListener('click', (e) => {
+                document.getElementById('pinned-place-name').value = ''; // Clear name
                 document.getElementById('pinned-place-lat').value = e.latLng.lat().toFixed(6);
                 document.getElementById('pinned-place-lng').value = e.latLng.lng().toFixed(6);
                 showCustomAlert(`Coordinate selezionate: Lat ${e.latLng.lat().toFixed(6)}, Lng ${e.latLng.lng().toFixed(6)}`);
@@ -1218,6 +1219,7 @@
                             map.setCenter({ lat: lat, lng: lng });
                             map.setZoom(zoom);
                             // Set coordinates in the add new place form
+                            document.getElementById('pinned-place-name').value = 'Posizione Attuale';
                             document.getElementById('pinned-place-lat').value = lat.toFixed(6);
                             document.getElementById('pinned-place-lng').value = lng.toFixed(6);
                         }
@@ -1250,6 +1252,7 @@
         function loadAndDisplayPinnedPlaces(city) {
             const pinnedPlacesListEl = document.getElementById('pinned-places-list');
             pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Caricamento luoghi pinnati...</li>';
+            document.getElementById('current-map-city-display').textContent = city; // Update city display
 
             if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Unsubscribe from previous listener
 
@@ -1289,13 +1292,17 @@
         }
 
         // Aggiungi un marker alla mappa
-        function addMapMarker(lat, lng, title, snippet = '') {
+        function addMapMarker(lat, lng, title, snippet = '', icon = null) {
             if (!map) return;
-            const marker = new google.maps.Marker({
+            const markerOptions = {
                 position: { lat: lat, lng: lng },
                 map: map,
                 title: title
-            });
+            };
+            if (icon) {
+                markerOptions.icon = icon;
+            }
+            const marker = new google.maps.Marker(markerOptions);
 
             const infoWindow = new google.maps.InfoWindow({
                 content: `<strong>${title}</strong><p>${snippet}</p>`
@@ -1366,6 +1373,76 @@
                 showCustomAlert('Luogo pinnato eliminato.');
             }
         }
+
+        // Funzione per cercare luoghi tramite Google Places API
+        async function searchPlaces() {
+            const queryInput = document.getElementById('search-query-input');
+            const resultsList = document.getElementById('search-results-list');
+            const queryText = queryInput.value.trim();
+
+            if (!queryText) {
+                showCustomAlert("Per favore, inserisci un termine di ricerca.");
+                return;
+            }
+
+            resultsList.innerHTML = '<li class="text-gray-400">Ricerca in corso...</li>';
+            clearMapMarkers(); // Clear existing markers
+
+            // Get current map center for biasing search
+            const mapCenter = map.getCenter();
+            const lat = mapCenter.lat();
+            const lng = mapCenter.lng();
+
+            try {
+                const response = await fetch('/.netlify/functions/searchPlaces', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: queryText, latitude: lat, longitude: lng })
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`Errore nella ricerca luoghi: ${errorBody.message || 'Errore sconosciuto'}`);
+                }
+
+                const data = await response.json();
+                const places = data.results;
+
+                resultsList.innerHTML = '';
+                if (places.length === 0) {
+                    resultsList.innerHTML = '<li class="text-gray-400">Nessun risultato trovato.</li>';
+                } else {
+                    places.forEach(place => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-gray-700/30 p-3 rounded-lg text-sm mb-2 cursor-pointer hover-shadow-effect';
+                        li.textContent = place.name + (place.vicinity ? ` (${place.vicinity})` : '');
+                        li.dataset.name = place.name;
+                        li.dataset.lat = place.geometry.location.lat;
+                        li.dataset.lng = place.geometry.location.lng;
+                        li.dataset.address = place.vicinity || place.formatted_address || '';
+                        li.dataset.type = place.types && place.types.includes('restaurant') ? 'Ristorante' : 'Attrazione'; // Basic type inference
+
+                        li.addEventListener('click', (e) => {
+                            document.getElementById('pinned-place-name').value = e.target.dataset.name;
+                            document.getElementById('pinned-place-lat').value = e.target.dataset.lat;
+                            document.getElementById('pinned-place-lng').value = e.target.dataset.lng;
+                            document.getElementById('pinned-place-tag').value = e.target.dataset.type;
+                            document.getElementById('pinned-place-notes').value = `Indirizzo: ${e.target.dataset.address}`;
+                            showCustomAlert(`Modulo precompilato con ${e.target.dataset.name}.`);
+                        });
+                        resultsList.appendChild(li);
+
+                        // Add marker for search result
+                        addMapMarker(place.geometry.location.lat, place.geometry.location.lng, place.name, place.vicinity || place.formatted_address);
+                    });
+                }
+                lucide.createIcons();
+            } catch (error) {
+                console.error("Search places error:", error);
+                resultsList.innerHTML = `<li class="text-red-400">Errore nella ricerca: ${error.message}</li>`;
+            }
+        }
+
 
         // Custom alert/modal implementation (since alert() is forbidden)
         function showCustomAlert(message) {
@@ -1516,6 +1593,8 @@
             document.getElementById('map-city-select').addEventListener('change', changeMapCity);
             document.getElementById('get-location-btn').addEventListener('click', getGeolocationForMap);
             document.getElementById('save-pinned-place-btn').addEventListener('click', savePinnedPlace);
+            document.getElementById('search-places-btn').addEventListener('click', searchPlaces); // New search button listener
+
             // Event delegation for delete buttons on pinned places list
             document.getElementById('pinned-places-list').addEventListener('click', (e) => {
                 if (e.target.closest('.delete-pinned-place-btn')) {
@@ -2079,6 +2158,14 @@
                         <i data-lucide="locate-fixed" class="w-5 h-5"></i>
                         Ottieni Posizione Attuale
                     </button>
+                    <div class="mt-4">
+                        <label for="search-query-input" class="block text-sm font-medium text-gray-400 mb-1">Cerca un luogo</label>
+                        <input type="text" id="search-query-input" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Ristorante ramen, Tempio, Parco...">
+                        <button id="search-places-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                            <i data-lucide="search" class="w-5 h-5"></i>
+                            Cerca Luoghi
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.1s;">
@@ -2089,6 +2176,15 @@
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.2s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Risultati Ricerca
+                    </h3>
+                    <ul id="search-results-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                        <li class="text-gray-400">Nessun risultato di ricerca.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.3s;">
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
                         <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
                     </h3>
@@ -2135,7 +2231,7 @@
                     </button>
                 </div>
 
-                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.3s;">
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.4s;">
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
                         <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
                     </h3>
