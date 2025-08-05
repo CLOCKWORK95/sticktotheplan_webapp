@@ -4,6 +4,6 @@
   "description": "Serverless functions for the Japan trip app",
   "main": "translate.js",
   "dependencies": {
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^2.7.0"
   }
 }

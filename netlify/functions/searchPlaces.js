@@ -7,6 +7,7 @@
 // Nota: Netlify Functions supporta fetch nativamente in versioni recenti di Node.js,
 // ma per compatibilità o se si usa una versione più vecchia, node-fetch è utile.
 // Per questo esempio, assumiamo un ambiente Node.js moderno su Netlify dove fetch è disponibile.
+const fetch = require('node-fetch'); // <-- DEVE ESSERE ATTIVO!
 
 exports.handler = async function(event, context) {
     // Controlla che la richiesta sia di tipo POST
@@ -23,6 +24,7 @@ exports.handler = async function(event, context) {
         // Parsifica il corpo della richiesta JSON
         requestBody = JSON.parse(event.body);
     } catch (e) {
+        console.error("Errore nel parsing del corpo della richiesta JSON:", e);
         return {
             statusCode: 400,
             body: JSON.stringify({ message: 'Invalid JSON body' }),
@@ -61,7 +63,7 @@ exports.handler = async function(event, context) {
     // Usiamo 'textsearch' per una ricerca generica basata su testo.
     // 'location' e 'radius' possono essere usati per biasare i risultati verso una zona.
     // 'fields' specifica quali dati vogliamo nella risposta per mantenere la risposta leggera.
-    const googlePlacesApiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}&language=it`;
+    let googlePlacesApiUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}&language=it`;
 
     // Aggiungi biasing se latitudine e longitudine sono fornite
     if (latitude && longitude) {
@@ -120,10 +122,11 @@ exports.handler = async function(event, context) {
         };
 
     } catch (error) {
-        console.error("Errore durante la chiamata all'API di Google Places:", error);
+        // Logga l'errore completo per un debug più facile nei log di Netlify
+        console.error("Errore durante la chiamata all'API di Google Places o elaborazione:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ message: 'Internal Server Error during Places API call', error: error.message }),
+            body: JSON.stringify({ message: `Internal Server Error: ${error.message}`, errorDetails: error.stack }),
             headers: { 'Content-Type': 'application/json' },
         };
     }
