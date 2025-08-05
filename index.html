@@ -43,11 +43,17 @@
         let currentDayUnsubscribeExpenses = null;
         let itineraryUnsubscribe = null;
         let backpackUnsubscribe = null; // New unsubscribe for backpack
+        let pinnedPlacesUnsubscribe = null; // New unsubscribe for pinned places
         let clockInterval = null;
         let italianClockInterval = null; // New interval for Italian time
         let currentActiveDate = null; // Global variable to store the currently active date
         let currentBackpackUser = 'pino'; // Default backpack user
         let currentBackpackFilter = 'Tutti'; // Default backpack filter
+        let map; // Google Map instance
+        let currentMapCity = 'Tokyo'; // Default map city
+        let mapMarkers = []; // Array to store map markers
+        let googleMapsApiLoaded = false; // Flag to ensure API loads only once
+
 
         // Variabili per la gestione dello swipe
         let touchStartX = 0;
@@ -60,6 +66,7 @@
         const homeView = document.getElementById('home-view');
         const dayDetailView = document.getElementById('day-detail-view');
         const backpackView = document.getElementById('backpack-view'); // New backpack view
+        const mapView = document.getElementById('map-view'); // New map view
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const logoutButton = document.getElementById('logout-btn');
@@ -79,6 +86,7 @@
                 if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
                 if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
                 if (backpackUnsubscribe) backpackUnsubscribe(); // Clear backpack listener
+                if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
                 if(clockInterval) clearInterval(clockInterval);
                 if(italianClockInterval) clearInterval(italianClockInterval); // Clear Italian clock interval
             }
@@ -104,12 +112,20 @@
             navigateTo('backpack');
             loadAndDisplayBackpackItems(); // Load backpack items when navigating to backpack view
         });
+        document.getElementById('nav-map-btn').addEventListener('click', () => {
+            navigateTo('map');
+            loadGoogleMapsScript(); // Load Google Maps API when navigating to map view
+            populateMapCityDropdown(); // Populate dropdown when map view is loaded
+            // loadAndDisplayPinnedPlaces will be called by initMap callback
+        });
+
 
         function navigateTo(viewName) {
             const views = {
                 'home': homeView,
                 'day-detail': dayDetailView,
-                'backpack': backpackView
+                'backpack': backpackView,
+                'map': mapView // Add map view
             };
 
             // Nascondi tutte le viste con transizione
@@ -172,6 +188,7 @@
                 tripData.sort((a, b) => new Date(a.date) - new Date(b.date));
                 
                 populateCityTagDropdown(); // Call after tripData is loaded
+                populateMapCityDropdown(); // Ensure map city dropdown is populated
                 renderHomeView();
                 navigateTo('home');
             });
@@ -191,17 +208,17 @@
             "default": "images/giappone.jpg" // Immagine predefinita
         };
 
-        // Mappa delle coordinate per le città (per Open-Meteo)
+        // Mappa delle coordinate per le città (per Open-Meteo e Google Maps)
         const cityCoordinates = {
-            "Tokyo": { latitude: 35.6895, longitude: 139.6917 },
-            "Ryokan (Takaragawa Onsen)": { latitude: 36.8528, longitude: 139.0287 }, // Coordinate approssimative per Takaragawa Onsen
-            "Kanazawa": { latitude: 36.5612, longitude: 136.6562 },
-            "Shirakawa-go": { latitude: 36.2575, longitude: 136.8973 },
-            "Kyoto": { latitude: 35.0116, longitude: 135.7681 },
-            "Osaka": { latitude: 34.6937, longitude: 135.5022 },
-            "Nara": { latitude: 34.6851, longitude: 135.8048 }, // Coordinate per Nara
-            "Volo di Ritorno": { latitude: 0, longitude: 0 }, // Placeholder, non useremo il meteo per questo
-            "default": { latitude: 35.6895, longitude: 139.6917 } // Tokyo come default
+            "Tokyo": { latitude: 35.6895, longitude: 139.6917, zoom: 12 },
+            "Ryokan (Takaragawa Onsen)": { latitude: 36.8528, longitude: 139.0287, zoom: 12 }, // Coordinate approssimative per Takaragawa Onsen
+            "Kanazawa": { latitude: 36.5612, longitude: 136.6562, zoom: 12 },
+            "Shirakawa-go": { latitude: 36.2575, longitude: 136.8973, zoom: 14 },
+            "Kyoto": { latitude: 35.0116, longitude: 135.7681, zoom: 12 },
+            "Osaka": { latitude: 34.6937, longitude: 135.5022, zoom: 12 },
+            "Nara": { latitude: 34.6851, longitude: 135.8048, zoom: 13 }, // Coordinate per Nara
+            "Volo di Ritorno": { latitude: 0, longitude: 0, zoom: 1 }, // Placeholder, non useremo il meteo per questo
+            "default": { latitude: 35.6895, longitude: 139.6917, zoom: 12 } // Tokyo come default
         };
 
 
@@ -274,6 +291,7 @@
             if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
             if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
             if (backpackUnsubscribe) backpackUnsubscribe(); // Ensure backpack listener is cleared for day view
+            if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
             if (clockInterval) clearInterval(clockInterval);
             if (italianClockInterval) clearInterval(italianClockInterval); // Clear Italian clock interval
 
@@ -333,7 +351,7 @@
             if (prevDayBtn) {
                 if (currentIndex > 0) {
                     prevDayBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1);
+                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1); // Corrected for previous day
                 } else {
                     prevDayBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     prevDayBtn.onclick = null;
@@ -343,7 +361,7 @@
             if (nextDayBtn) {
                 if (currentIndex < tripData.length - 1) {
                     nextDayBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    nextDayBtn.onclick = () => navigateDay(currentIndex + 1);
+                    nextDayBtn.onclick = () => navigateDay(currentIndex + 1); // Corrected for next day
                 } else {
                     nextDayBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     nextDayBtn.onclick = null;
@@ -808,10 +826,7 @@
         }
 
         async function deleteBackpackItem(itemId) {
-            // Implementa una conferma utente per la cancellazione
-            // NOTA: Per un'applicazione reale, dovresti implementare un modal di conferma personalizzato
-            // invece di window.confirm() a causa delle restrizioni degli iframe.
-            if (confirm("Sei sicuro di voler eliminare questo oggetto?")) {
+            if (await showCustomConfirm("Sei sicuro di voler eliminare questo oggetto?")) {
                 // Usa la collezione dinamica in base a currentBackpackUser
                 const itemRef = doc(db, "backpacks", currentBackpackUser, "items", itemId);
                 await deleteDoc(itemRef);
@@ -1087,6 +1102,318 @@
             lucide.createIcons(); // Re-create icons for dynamically added content
         }
 
+        // =================================================================================
+        // GOOGLE MAPS & PINNED PLACES FUNCTIONS
+        // =================================================================================
+
+        // Funzione di callback per l'API di Google Maps
+        window.initMap = function() {
+            console.log("Google Maps API loaded and initMap called.");
+            const mapOptions = {
+                center: { lat: cityCoordinates.Tokyo.latitude, lng: cityCoordinates.Tokyo.longitude },
+                zoom: cityCoordinates.Tokyo.zoom,
+                mapId: 'DEMO_MAP_ID' // You can create a Map ID in Google Cloud Console
+            };
+            map = new google.maps.Map(document.getElementById('map'), mapOptions);
+
+            // Add a click listener to the map to get coordinates for adding a new place
+            map.addListener('click', (e) => {
+                document.getElementById('pinned-place-lat').value = e.latLng.lat().toFixed(6);
+                document.getElementById('pinned-place-lng').value = e.latLng.lng().toFixed(6);
+                showCustomAlert(`Coordinate selezionate: Lat ${e.latLng.lat().toFixed(6)}, Lng ${e.latLng.lng().toFixed(6)}`);
+            });
+
+            // Load pinned places for the initially selected city
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        };
+
+        // Function to dynamically load Google Maps API script
+        async function loadGoogleMapsScript() {
+            if (googleMapsApiLoaded) {
+                console.log("Google Maps API already loaded.");
+                // If API is already loaded, just re-initialize map if needed
+                if (map) {
+                    const coords = cityCoordinates[currentMapCity] || cityCoordinates.default;
+                    map.setCenter({ lat: coords.latitude, lng: coords.longitude });
+                    map.setZoom(coords.zoom);
+                } else {
+                    // This case should ideally not happen if googleMapsApiLoaded is true,
+                    // but as a fallback, call initMap directly.
+                    window.initMap();
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch('/.netlify/functions/getGoogleMapsApiKey');
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`Errore nel recupero della chiave API di Google Maps: ${errorBody.message || 'Errore sconosciuto'}`);
+                }
+                const data = await response.json();
+                const apiKey = data.apiKey;
+
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+                googleMapsApiLoaded = true; // Set flag to true once script is appended
+                console.log("Google Maps API script appended to head.");
+
+            } catch (error) {
+                console.error("Errore nel caricamento dell'API di Google Maps:", error);
+                showCustomAlert(`Errore nel caricamento della mappa: ${error.message}.`);
+            }
+        }
+
+
+        // Popola la dropdown delle città per la mappa
+        function populateMapCityDropdown() {
+            const mapCitySelect = document.getElementById('map-city-select');
+            mapCitySelect.innerHTML = ''; // Clear existing options
+
+            const uniqueCities = new Set();
+            tripData.forEach(day => {
+                const city = day.location.split('/')[0].trim();
+                if (city && city !== "Volo di Ritorno") {
+                    uniqueCities.add(city);
+                }
+            });
+
+            Array.from(uniqueCities).sort().forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                mapCitySelect.appendChild(option);
+            });
+
+            // Set the current selected city in the dropdown
+            mapCitySelect.value = currentMapCity;
+        }
+
+        // Cambia la città sulla mappa
+        function changeMapCity() {
+            const selectedCity = document.getElementById('map-city-select').value;
+            currentMapCity = selectedCity;
+            const coords = cityCoordinates[selectedCity] || cityCoordinates.default;
+            if (map) {
+                map.setCenter({ lat: coords.latitude, lng: coords.longitude });
+                map.setZoom(coords.zoom);
+            }
+            loadAndDisplayPinnedPlaces(currentMapCity);
+        }
+
+        // Ottieni la posizione attuale e centra la mappa
+        function getGeolocationForMap() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const radiusKm = parseFloat(document.getElementById('radius-input').value) || 5; // Default 5km
+                        const zoom = calculateZoomFromRadius(radiusKm); // Calculate zoom based on radius
+
+                        if (map) {
+                            map.setCenter({ lat: lat, lng: lng });
+                            map.setZoom(zoom);
+                            // Set coordinates in the add new place form
+                            document.getElementById('pinned-place-lat').value = lat.toFixed(6);
+                            document.getElementById('pinned-place-lng').value = lng.toFixed(6);
+                        }
+                        showCustomAlert(`Mappa centrata sulla tua posizione attuale. Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                        showCustomAlert("Impossibile ottenere la tua posizione. Assicurati che la geolocalizzazione sia abilitata.");
+                    }
+                );
+            } else {
+                showCustomAlert("La geolocalizzazione non è supportata dal tuo browser.");
+            }
+        }
+
+        // Helper function to calculate zoom level based on radius (approximate)
+        function calculateZoomFromRadius(radiusKm) {
+            // This is a rough approximation. Google Maps API has more precise ways.
+            // A smaller radius means a higher zoom level.
+            // Example: 1km radius -> zoom 15-16, 10km radius -> zoom 11-12
+            if (radiusKm <= 1) return 15;
+            if (radiusKm <= 5) return 13;
+            if (radiusKm <= 10) return 11;
+            if (radiusKm <= 20) return 10;
+            return 9; // For larger radii
+        }
+
+
+        // Carica e visualizza i luoghi pinnati per la città selezionata
+        function loadAndDisplayPinnedPlaces(city) {
+            const pinnedPlacesListEl = document.getElementById('pinned-places-list');
+            pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Caricamento luoghi pinnati...</li>';
+
+            if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Unsubscribe from previous listener
+
+            const pinnedPlacesQuery = query(collection(db, "pinned-places"), where("city", "==", city));
+            pinnedPlacesUnsubscribe = onSnapshot(pinnedPlacesQuery, (snapshot) => {
+                pinnedPlacesListEl.innerHTML = '';
+                clearMapMarkers(); // Clear existing markers before adding new ones
+                let places = [];
+                snapshot.forEach(doc => places.push({ id: doc.id, ...doc.data() }));
+
+                if (places.length === 0) {
+                    pinnedPlacesListEl.innerHTML = '<li class="text-gray-400">Nessun luogo pinnato per questa città.</li>';
+                } else {
+                    places.forEach(place => {
+                        const li = document.createElement('li');
+                        li.className = 'bg-gray-700/30 p-3 rounded-lg text-sm mb-2 flex justify-between items-center hover-shadow-effect';
+                        li.innerHTML = `
+                            <div>
+                                <span class="font-semibold text-white">${place.name}</span>
+                                <span class="text-gray-400 block text-xs">Lat: ${place.latitude.toFixed(4)}, Lng: ${place.longitude.toFixed(4)}</span>
+                                <span class="text-red-300 text-xs block">${place.tag}</span>
+                                ${place.reservationDate ? `<span class="text-blue-300 text-xs block">Prenotazione: ${place.reservationDate} ${place.reservationTime || ''}</span>` : ''}
+                                ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
+                            </div>
+                            <button data-id="${place.id}" class="delete-pinned-place-btn ml-4 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white transition-colors duration-200">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        `;
+                        pinnedPlacesListEl.appendChild(li);
+
+                        // Add marker to map
+                        addMapMarker(place.latitude, place.longitude, place.name, place.notes);
+                    });
+                }
+                lucide.createIcons();
+            });
+        }
+
+        // Aggiungi un marker alla mappa
+        function addMapMarker(lat, lng, title, snippet = '') {
+            if (!map) return;
+            const marker = new google.maps.Marker({
+                position: { lat: lat, lng: lng },
+                map: map,
+                title: title
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `<strong>${title}</strong><p>${snippet}</p>`
+            });
+
+            marker.addListener('click', () => {
+                infoWindow.open(map, marker);
+            });
+            mapMarkers.push(marker);
+        }
+
+        // Pulisci tutti i marker dalla mappa
+        function clearMapMarkers() {
+            mapMarkers.forEach(marker => marker.setMap(null));
+            mapMarkers = [];
+        }
+
+
+        // Salva un nuovo luogo pinnato
+        async function savePinnedPlace() {
+            const nameInput = document.getElementById('pinned-place-name');
+            const latInput = document.getElementById('pinned-place-lat');
+            const lngInput = document.getElementById('pinned-place-lng');
+            const dateInput = document.getElementById('pinned-place-date');
+            const timeInput = document.getElementById('pinned-place-time');
+            const tagSelect = document.getElementById('pinned-place-tag');
+            const notesInput = document.getElementById('pinned-place-notes');
+
+            const name = nameInput.value.trim();
+            const latitude = parseFloat(latInput.value);
+            const longitude = parseFloat(lngInput.value);
+            const reservationDate = dateInput.value.trim();
+            const reservationTime = timeInput.value.trim();
+            const tag = tagSelect.value;
+            const notes = notesInput.value.trim();
+
+            if (name && !isNaN(latitude) && !isNaN(longitude) && currentMapCity) {
+                await addDoc(collection(db, "pinned-places"), {
+                    city: currentMapCity,
+                    name: name,
+                    latitude: latitude,
+                    longitude: longitude,
+                    reservationDate: reservationDate || null,
+                    reservationTime: reservationTime || null,
+                    tag: tag,
+                    notes: notes || null,
+                    createdAt: new Date()
+                });
+                // Clear form
+                nameInput.value = '';
+                latInput.value = '';
+                lngInput.value = '';
+                dateInput.value = '';
+                timeInput.value = '';
+                tagSelect.value = 'Attrazione';
+                notesInput.value = '';
+                showCustomAlert('Luogo pinnato aggiunto con successo!');
+            } else {
+                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine) e seleziona una città.');
+            }
+        }
+
+        // Elimina un luogo pinnato
+        async function deletePinnedPlace(id) {
+            if (await showCustomConfirm("Sei sicuro di voler eliminare questo luogo pinnato?")) {
+                const placeRef = doc(db, "pinned-places", id);
+                await deleteDoc(placeRef);
+                showCustomAlert('Luogo pinnato eliminato.');
+            }
+        }
+
+        // Custom alert/modal implementation (since alert() is forbidden)
+        function showCustomAlert(message) {
+            const alertModal = document.getElementById('custom-alert-modal');
+            const alertMessage = document.getElementById('custom-alert-message');
+            const alertCloseBtn = document.getElementById('custom-alert-close-btn');
+
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+            alertModal.classList.add('flex'); // Use flex to center
+
+            alertCloseBtn.onclick = () => {
+                alertModal.classList.add('hidden');
+                alertModal.classList.remove('flex');
+            };
+        }
+
+        // Custom confirm modal implementation (since confirm() is forbidden)
+        function showCustomConfirm(message) {
+            return new Promise((resolve) => {
+                const confirmModal = document.getElementById('custom-confirm-modal');
+                const confirmMessage = document.getElementById('custom-confirm-message');
+                const confirmYesBtn = document.getElementById('custom-confirm-yes-btn');
+                const confirmNoBtn = document.getElementById('custom-confirm-no-btn');
+
+                confirmMessage.textContent = message;
+                confirmModal.classList.remove('hidden');
+                confirmModal.classList.add('flex');
+
+                const cleanup = () => {
+                    confirmModal.classList.add('hidden');
+                    confirmModal.classList.remove('flex');
+                    confirmYesBtn.onclick = null;
+                    confirmNoBtn.onclick = null;
+                };
+
+                confirmYesBtn.onclick = () => {
+                    cleanup();
+                    resolve(true);
+                };
+
+                confirmNoBtn.onclick = () => {
+                    cleanup();
+                    resolve(false);
+                };
+            });
+        }
+
 
         // Inizializza la tastiera in italiano all'avvio
         document.addEventListener('DOMContentLoaded', () => {
@@ -1171,19 +1498,31 @@
                                 const jsonData = JSON.parse(e.target.result);
                                 if (Array.isArray(jsonData)) {
                                     await importItineraryFromJson(jsonData);
-                                    alert('Itinerario importato con successo!');
+                                    showCustomAlert('Itinerario importato con successo!');
                                 } else {
-                                    alert('Errore: Il file JSON non contiene un array di giorni valido.');
+                                    showCustomAlert('Errore: Il file JSON non contiene un array di giorni valido.');
                                 }
                             } catch (error) {
                                 console.error("Errore durante la lettura o il parsing del JSON:", error);
-                                alert('Errore durante l\'importazione del file JSON. Assicurati che sia un formato valido.');
+                                showCustomAlert('Errore durante l\'importazione del file JSON. Assicurati che sia un formato valido.');
                             }
                         };
                         reader.readAsText(file);
                     }
                 });
             }
+
+            // Map specific event listeners
+            document.getElementById('map-city-select').addEventListener('change', changeMapCity);
+            document.getElementById('get-location-btn').addEventListener('click', getGeolocationForMap);
+            document.getElementById('save-pinned-place-btn').addEventListener('click', savePinnedPlace);
+            // Event delegation for delete buttons on pinned places list
+            document.getElementById('pinned-places-list').addEventListener('click', (e) => {
+                if (e.target.closest('.delete-pinned-place-btn')) {
+                    const id = e.target.closest('.delete-pinned-place-btn').dataset.id;
+                    deletePinnedPlace(id);
+                }
+            });
         });
 
         // Funzione per importare l'itinerario da un array JSON
@@ -1472,6 +1811,14 @@
                 transform: translateX(0);
             }
         }
+
+        /* Map specific styles */
+        #map {
+            height: 400px; /* Fixed height for the map */
+            width: 100%;
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+        }
     </style>
 </head>
 <body class="text-gray-300"> <!-- Changed to text-gray-300 for general text on dark background -->
@@ -1509,6 +1856,10 @@
                 <button id="nav-backpack-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="backpack" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Zaino</span>
+                </button>
+                <button id="nav-map-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="map" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Mappa</span>
                 </button>
             </div>
             <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
@@ -1697,6 +2048,126 @@
                     </ul>
                 </div>
             </main>
+        </div>
+
+        <!-- Map View (New) -->
+        <div id="map-view" class="view-transition opacity-0 hidden">
+            <header class="p-4 sm:p-6 flex justify-center items-center flex-col sm:flex-row">
+                <div class="text-center">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Mappa e Luoghi</h1>
+                    <p class="text-gray-400">Esplora e salva i tuoi punti di interesse</p>
+                </div>
+            </header>
+            <main class="p-4 sm:p-6">
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="map-pin" class="w-5 h-5 text-red-400"></i>Controlli Mappa
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="map-city-select" class="block text-sm font-medium text-gray-400 mb-1">Seleziona Città</label>
+                            <select id="map-city-select" class="form-input w-full p-2 border rounded-md text-sm">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="radius-input" class="block text-sm font-medium text-gray-400 mb-1">Raggio (km) per Posizione Attuale</label>
+                            <input type="number" id="radius-input" class="form-input w-full p-2 border rounded-md text-sm" value="5" min="1">
+                        </div>
+                    </div>
+                    <button id="get-location-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                        <i data-lucide="locate-fixed" class="w-5 h-5"></i>
+                        Ottieni Posizione Attuale
+                    </button>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.1s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Mappa
+                    </h3>
+                    <div id="map"></div>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.2s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="pinned-place-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Luogo</label>
+                            <input type="text" id="pinned-place-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Tempio Senso-ji">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="pinned-place-lat" class="block text-sm font-medium text-gray-400 mb-1">Latitudine</label>
+                                <input type="number" id="pinned-place-lat" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Latitudine">
+                            </div>
+                            <div>
+                                <label for="pinned-place-lng" class="block text-sm font-medium text-gray-400 mb-1">Longitudine</label>
+                                <input type="number" id="pinned-place-lng" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Longitudine">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="pinned-place-date" class="block text-sm font-medium text-gray-400 mb-1">Data Prenotazione (Opz.)</label>
+                            <input type="date" id="pinned-place-date" class="form-input w-full p-2 border rounded-md text-sm">
+                        </div>
+                        <div>
+                            <label for="pinned-place-time" class="block text-sm font-medium text-gray-400 mb-1">Ora Prenotazione (Opz.)</label>
+                            <input type="time" id="pinned-place-time" class="form-input w-full p-2 border rounded-md text-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="pinned-place-tag" class="block text-sm font-medium text-gray-400 mb-1">Tag</label>
+                            <select id="pinned-place-tag" class="form-input w-full p-2 border rounded-md text-sm">
+                                <option>Attrazione</option>
+                                <option>Ristorante</option>
+                                <option>Trasporto</option>
+                                <option>Alloggio</option>
+                                <option>Altro</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
+                            <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
+                        </div>
+                    </div>
+                    <button id="save-pinned-place-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
+                        Salva Luogo Pinnato
+                    </button>
+                </div>
+
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.3s;">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
+                    </h3>
+                    <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        <!-- Pinned places will be loaded here by JS -->
+                    </ul>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 max-w-sm w-full text-center">
+            <p id="custom-alert-message" class="text-white mb-4"></p>
+            <button id="custom-alert-close-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 max-w-sm w-full text-center">
+            <p id="custom-confirm-message" class="text-white mb-4"></p>
+            <div class="flex justify-center gap-4">
+                <button id="custom-confirm-yes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
+                    Sì
+                </button>
+                <button id="custom-confirm-no-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-200">
+                    No
+                </button>
+            </div>
         </div>
     </div>
     <script>
