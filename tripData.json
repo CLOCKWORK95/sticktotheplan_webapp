@@ -1,0 +1,230 @@
+[
+  {
+    "date": "2025-08-23",
+    "location": "Tokyo",
+    "accommodation": {
+      "name": "APA Hotel Asakusa Kuramae Kita",
+      "details": "212€ (35.073 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+    },
+    "travel": [
+      {
+        "type": "Aereo",
+        "description": "NARITA AIRPORT -> TOKYO STATION (€22 a persona)"
+      }
+    ],
+    "events": [
+      {
+        "name": "Museo Nazionale di Tokyo",
+        "details": "Prenotare dal 23.06"
+      },
+      {
+        "name": "Tokyo Tower",
+        "details": "Prenotare dal 23.06",
+        "link": "https://ars-tokyotower.linktivity.io/activity/en/LINKTIVITY-UP6NK"
+      }
+    ]
+  },
+  {
+    "date": "2025-08-24",
+    "location": "Tokyo",
+    "accommodation": {
+      "name": "APA Hotel Asakusa Kuramae Kita",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-08-25",
+    "location": "Tokyo",
+    "accommodation": {
+      "name": "APA Hotel Asakusa Kuramae Kita",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-08-26",
+    "location": "Ryokan (Takaragawa Onsen)",
+    "accommodation": {
+      "name": "Takaragawa Onsen Ousenkaku",
+      "details": "220€ (30.600 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Takaragawa+Onsen+Ousenkaku"
+    },
+    "travel": [
+      {
+        "type": "Treno",
+        "description": "TOKYO -> JOMO-KOGEN (€37 a persona, ~1h)"
+      },
+      {
+        "type": "Navetta",
+        "description": "Jomo-kogen -> Hotel (45min, da concordare)"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-08-27",
+    "location": "Kanazawa",
+    "accommodation": {
+      "name": "Tokyu Stay Kanazawa",
+      "details": "109€ (17.820 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa"
+    },
+    "travel": [
+      {
+        "type": "Treno",
+        "description": "JOMO-KOGEN -> TOKYO (€37 a persona, ~1h)"
+      },
+      {
+        "type": "Shinkansen",
+        "description": "TOKYO -> KANAZAWA (€97 a persona, 2h30-3h)"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-08-28",
+    "location": "Kanazawa",
+    "accommodation": {
+      "name": "Tokyu Stay Kanazawa",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-08-29",
+    "location": "Shirakawa-go",
+    "accommodation": {
+      "name": "Minshuku Goyomon",
+      "details": "171€ (28.000 YEN) SOLO CASH",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Minshuku+Goyomon,Shirakawa"
+    },
+    "travel": [
+      {
+        "type": "Autobus",
+        "description": "KANAZAWA -> SHIRAKAWA-GO (1h25, 32,78€) Partenza 09:40. Prenotazione: 08032040671. STAMPARE E-MAIL!",
+        "link": "https://www.tabi-nanto.jp/en/nantokanazawasen/time.php"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-08-30",
+    "location": "Kyoto",
+    "accommodation": {
+      "name": "Wander Kyoto Nanajo",
+      "details": "238€ (38.946 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+    },
+    "travel": [
+      {
+        "type": "Autobus",
+        "description": "Ainokura -> Shirakawa-go (09:28-10:20)"
+      },
+      {
+        "type": "Autobus",
+        "description": "Shirakawa-go -> Kanazawa (10:55-12:20, 32,78€). Prenotazione: 08032042981. STAMPARE E-MAIL!"
+      },
+      {
+        "type": "Treno",
+        "description": "Kanazawa -> Kyoto (13:05-15:09, ~104€). COMPRARE BIGLIETTI"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-08-31",
+    "location": "Kyoto",
+    "accommodation": {
+      "name": "Wander Kyoto Nanajo",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-09-01",
+    "location": "Kyoto",
+    "accommodation": {
+      "name": "Wander Kyoto Nanajo",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-09-02",
+    "location": "Osaka",
+    "accommodation": {
+      "name": "MEANDER Osaka",
+      "details": "205,53€ (33.516 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka"
+    },
+    "travel": [
+      {
+        "type": "Treno",
+        "description": "KYOTO -> OSAKA (€9 a persona, 30min)"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-09-03",
+    "location": "Nara / Osaka",
+    "accommodation": {
+      "name": "MEANDER Osaka",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka"
+    },
+    "travel": [
+      {
+        "type": "Treno",
+        "description": "OSAKA <-> NARA"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-09-04",
+    "location": "Tokyo",
+    "accommodation": {
+      "name": "APA Hotel Asakusa Kuramae Kita",
+      "details": "197€ (32.328 YEN)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+    },
+    "travel": [
+      {
+        "type": "Treno",
+        "description": "OSAKA -> TOKYO"
+      }
+    ],
+    "events": []
+  },
+  {
+    "date": "2025-09-05",
+    "location": "Tokyo",
+    "accommodation": {
+      "name": "APA Hotel Asakusa Kuramae Kita",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+    },
+    "travel": [],
+    "events": []
+  },
+  {
+    "date": "2025-09-06",
+    "location": "Volo di Ritorno",
+    "accommodation": {
+      "name": "-"
+    },
+    "travel": [
+      {
+        "type": "Aereo",
+        "description": "TOKYO -> ROMA"
+      }
+    ],
+    "events": []
+  }
+]
