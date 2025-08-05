@@ -915,7 +915,7 @@
                 });
                 cancelEditBackpackItem(itemId); // Exit edit mode
             } else {
-                console.warn("Dati oggetto zaino non validi per la modifica.");
+                console.warn("Dati oggetto zaino non validi.");
             }
         }
 
@@ -949,8 +949,14 @@
                 selectedButton.classList.add('scale-105', 'ring-2', 'ring-amber-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
             }
             
-
             document.getElementById('current-backpack-name').textContent = user === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+
+            // Aggiorna l'immagine dello zaino
+            const backpackImageEl = document.getElementById('backpack-image');
+            if (backpackImageEl) {
+                backpackImageEl.src = user === 'pino' ? 'images/zaino_pino.png' : 'images/zaino_pina.png';
+                backpackImageEl.alt = user === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+            }
 
             // Apply theme class to backpack-view
             const backpackViewEl = document.getElementById('backpack-view');
@@ -1103,6 +1109,13 @@
             // Initial theme application
             document.getElementById('backpack-view').classList.add(`backpack-theme-${currentBackpackUser}`);
             document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+
+            // Set initial backpack image
+            const backpackImageEl = document.getElementById('backpack-image');
+            if (backpackImageEl) {
+                backpackImageEl.src = currentBackpackUser === 'pino' ? 'images/zaino_pino.png' : 'images/zaino_pina.png';
+                backpackImageEl.alt = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+            }
 
 
             // Inizializza i filtri dello zaino
@@ -1612,9 +1625,12 @@
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
                         <i data-lucide="users" class="w-5 h-5 text-purple-400"></i>Seleziona Zaino: <span id="current-backpack-name" class="ml-2">Zaino di Pino</span>
                     </h3>
-                    <div class="flex gap-4 mb-4">
-                        <button id="select-pino-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pino</button>
-                        <button id="select-pina-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pina</button>
+                    <div class="flex flex-col items-center gap-4 mb-4">
+                        <img id="backpack-image" src="" alt="Immagine Zaino" class="w-12 h-12 object-contain rounded-md shadow-md">
+                        <div class="flex gap-4 w-full">
+                            <button id="select-pino-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pino</button>
+                            <button id="select-pina-backpack-btn" class="flex-1 bg-purple-700 hover:bg-purple-800 text-white p-2 rounded-md transition-all duration-300 transform">Zaino di Pina</button>
+                        </div>
                     </div>
                 </div>
 
