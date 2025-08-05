@@ -134,18 +134,18 @@
             });
         }
         
-        // Mappa delle immagini per le località
+        // Mappa delle immagini per le località con percorsi locali
         const locationImages = {
-            "Tokyo": "https://placehold.co/1200x400/374151/d1d5db?text=Tokyo",
-            "Ryokan (Takaragawa Onsen)": "https://placehold.co/1200x400/374151/d1d5db?text=Takaragawa+Onsen",
-            "Kanazawa": "https://placehold.co/1200x400/374151/d1d5db?text=Kanazawa",
-            "Shirakawa-go": "https://placehold.co/1200x400/374151/d1d5db?text=Shirakawa-go",
-            "Kyoto": "https://placehold.co/1200x400/374151/d1d5db?text=Kyoto",
-            "Osaka": "https://placehold.co/1200x400/374151/d1d5db?text=Osaka",
-            "Nara / Osaka": "https://placehold.co/1200x400/374151/d1d5db?text=Nara",
-            "Volo di Ritorno": "https://placehold.co/1200x400/374151/d1d5db?text=Volo+di+Ritorno",
+            "Tokyo": "images/tokyo.jpg",
+            "Ryokan (Takaragawa Onsen)": "images/takaragawaonsen.jpg",
+            "Kanazawa": "images/kanazawa.jpg",
+            "Shirakawa-go": "images/shirakawago.jpg",
+            "Kyoto": "images/kyoto.jpg",
+            "Osaka": "images/osaka.jpeg",
+            "Nara / Osaka": "images/nara.jpg",
+            "Volo di Ritorno": "https://placehold.co/1200x675/374151/d1d5db?text=Volo+di+Ritorno",
             // Aggiungi altre località se necessario
-            "default": "https://placehold.co/1200x400/374151/d1d5db?text=Giappone" // Immagine predefinita
+            "default": "images/giappone.jpg" // Immagine predefinita
         };
 
         function renderHomeView() {
@@ -159,19 +159,45 @@
                 homeImageEl.alt = "Paesaggio Giapponese";
             }
 
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Reset time to midnight for comparison
+
+            let firstDayBeforeTripFound = false;
+            let firstDayDate = tripData.length > 0 ? new Date(tripData[0].date) : null;
+            if (firstDayDate) firstDayDate.setHours(0, 0, 0, 0);
+
             tripData.forEach(day => {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200';
                 row.dataset.date = day.date;
                 
                 const dayDate = new Date(day.date);
-                const isPast = dayDate < new Date().setHours(0,0,0,0);
+                dayDate.setHours(0, 0, 0, 0); // Reset time to midnight for comparison
+
+                let isPast = dayDate < today;
+                let isToday = dayDate.getTime() === today.getTime();
+                let isHighlighted = false;
+
+                if (isToday) {
+                    isHighlighted = true;
+                } else if (!firstDayBeforeTripFound && firstDayDate && today < firstDayDate && dayDate.getTime() === firstDayDate.getTime()) {
+                    isHighlighted = true;
+                    firstDayBeforeTripFound = true; // Ensure only the very first day is highlighted if before trip
+                }
+
+                if (isHighlighted) {
+                    row.classList.add('bg-green-700/30', 'border-green-500'); // Highlight current/first day
+                } else if (isPast) {
+                    row.classList.add('text-gray-500'); // Dim past days
+                } else {
+                    row.classList.add('text-gray-200'); // Normal color for future days
+                }
 
                 row.innerHTML = `
-                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}</td>
-                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${day.location}</td>
-                    <td class="p-4 ${isPast ? 'text-gray-500' : 'text-gray-200'}">${day.accommodation.name}</td>
-                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isPast ? 'text-gray-600' : 'text-indigo-400'}"></i></td>
+                    <td class="p-4">${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'short' })}</td>
+                    <td class="p-4">${day.location}</td>
+                    <td class="p-4">${day.accommodation.name}</td>
+                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-indigo-400')}"></i></td>
                 `;
                 row.addEventListener('click', () => {
                     renderDayDetailView(day.date);
@@ -226,12 +252,13 @@
             loadAndDisplayNotes(dateString);
             loadAndDisplayExpenses(dateString);
             
-            document.getElementById('save-note-btn').onclick = () => saveNote(dateString);
+            document.getElementById('save-note-btn').onclick = () => saveNote(dateString, null, 'manual'); // Passa 'manual' come sorgente
             document.getElementById('save-expense-btn').onclick = () => saveExpense(dateString);
             document.getElementById('translate-btn').onclick = () => translate();
             document.getElementById('toggle-keyboard-btn').onclick = () => toggleKeyboardLanguage(); // Nuovo listener per il tasto
-            document.getElementById('add-original-note-btn').onclick = () => addTranslationToNotes('original');
-            document.getElementById('add-translated-note-btn').onclick = () => addTranslationToNotes('translated');
+            
+            // Nuovo listener per il pulsante "Pulisci"
+            document.getElementById('clear-translation-btn').onclick = () => clearTranslationBoxes();
 
 
             lucide.createIcons();
@@ -299,7 +326,9 @@
                 } else {
                     notes.forEach(note => {
                         const li = document.createElement('li');
-                        li.className = 'bg-yellow-400/10 p-3 rounded-lg text-sm text-yellow-200';
+                        // Applica classi diverse in base alla sorgente della nota
+                        const noteClass = note.source === 'translation' ? 'bg-blue-400/10 text-blue-200' : 'bg-yellow-400/10 text-yellow-200';
+                        li.className = `${noteClass} p-3 rounded-lg text-sm`;
                         li.textContent = note.text;
                         notesListEl.appendChild(li);
                     });
@@ -307,12 +336,12 @@
             });
         }
 
-        async function saveNote(dateString, textToSave = null) {
+        async function saveNote(dateString, textToSave = null, source = 'manual') { // Aggiungi parametro 'source'
             const input = document.getElementById('note-input');
             const text = textToSave || input.value.trim(); // Usa textToSave se fornito, altrimenti il valore dell'input
 
             if (text) {
-                await addDoc(collection(db, "trip-notes"), { date: dateString, text: text, createdAt: new Date() });
+                await addDoc(collection(db, "trip-notes"), { date: dateString, text: text, source: source, createdAt: new Date() }); // Salva anche la sorgente
                 if (!textToSave) { // Pulisci l'input solo se il testo proviene dalla textarea degli appunti
                     input.value = '';
                 }
@@ -378,15 +407,31 @@
                 
                 // Gestione degli errori dalla risposta della Netlify Function
                 if (!response.ok) {
-                    const errorBody = await response.json();
-                    console.error("Netlify Function Error Body:", errorBody);
-                    throw new Error(`Errore dalla funzione server: ${errorBody.message || 'Errore sconosciuto'}`);
+                    // Tenta di leggere il corpo della risposta come testo per un debug più facile
+                    const errorText = await response.text();
+                    console.error("Netlify Function Error Raw Response:", errorText);
+                    let errorMessage = `Errore dalla funzione server: ${response.status} ${response.statusText}`;
+                    try {
+                        const errorBody = JSON.parse(errorText);
+                        errorMessage = `Errore dalla funzione server: ${errorBody.message || 'Errore sconosciuto'}`;
+                    } catch (e) {
+                        // Se non è JSON, usa il testo grezzo
+                        errorMessage = `Errore dalla funzione server: ${errorText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 // Parsifica la risposta JSON
                 const result = await response.json();
                 if (result.translation) {
                     outputEl.value = result.translation;
+                    
+                    // Salva automaticamente originale e traduzione negli appunti
+                    if (currentActiveDate) {
+                        await saveNote(currentActiveDate, `Originale: ${textToTranslate}`, 'translation');
+                        await saveNote(currentActiveDate, `Traduzione: ${result.translation}`, 'translation');
+                    }
+
                 } else {
                     throw new Error("Nessuna traduzione valida ricevuta dalla funzione server.");
                 }
@@ -417,39 +462,11 @@
             lucide.createIcons(); // Aggiorna l'icona
         }
 
-        // Nuova funzione per aggiungere il testo della traduzione agli appunti
-        async function addTranslationToNotes(type) {
-            if (!currentActiveDate) {
-                console.error("Nessuna data attiva selezionata per gli appunti.");
-                // Potresti voler mostrare un messaggio all'utente
-                return;
-            }
-
-            const inputEl = document.getElementById('translate-input-it');
-            const outputEl = document.getElementById('translate-output-jp');
-            let textToAdd = '';
-
-            if (type === 'original') {
-                textToAdd = inputEl.value.trim();
-            } else if (type === 'translated') {
-                textToAdd = outputEl.value.trim();
-            }
-
-            if (textToAdd) {
-                // Opzionalmente, mostra un feedback visivo che il testo è stato aggiunto
-                const originalPlaceholder = inputEl.placeholder;
-                inputEl.placeholder = "Appunto aggiunto!";
-                setTimeout(() => {
-                    inputEl.placeholder = originalPlaceholder;
-                }, 1500); // Messaggio temporaneo
-
-                await saveNote(currentActiveDate, textToAdd);
-            } else {
-                console.warn("Nessun testo da salvare negli appunti.");
-                // Potresti voler mostrare un messaggio all'utente
-            }
+        // Nuova funzione per pulire i campi di testo della traduzione
+        function clearTranslationBoxes() {
+            document.getElementById('translate-input-it').value = '';
+            document.getElementById('translate-output-jp').value = '';
         }
-
 
         // Inizializza la tastiera in italiano all'avvio
         document.addEventListener('DOMContentLoaded', () => {
@@ -508,19 +525,19 @@
     <div id="app-container" class="w-full h-full bg-gray-900 hidden">
         <!-- Home View -->
         <div id="home-view">
-            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center">
+            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center flex-col sm:flex-row">
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1>
-                    <p class="text-gray-400">Giappone 2025</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white text-center sm:text-left">Itinerario di Viaggio</h1>
+                    <p class="text-gray-400 text-center sm:text-left">Giappone 2025</p>
                 </div>
-                <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2 mt-4 sm:mt-0">
                     <i data-lucide="log-out" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">Logout</span>
                 </button>
             </header>
             <main class="p-4 sm:p-6">
                 <!-- Immagine di presentazione per la Home Page -->
-                <img id="home-title-image" src="" alt="Immagine di presentazione" class="w-full h-48 object-cover rounded-lg mb-6 shadow-md">
+                <img id="home-title-image" src="" alt="Immagine di presentazione" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
 
                 <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
                     <table class="w-full text-left">
@@ -542,12 +559,12 @@
 
         <!-- Day Detail View -->
         <div id="day-detail-view" class="hidden">
-            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center">
+            <header class="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center flex-col sm:flex-row">
                 <button id="back-to-home-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="arrow-left" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Itinerario</span>
                 </button>
-                 <div class="text-right flex flex-col sm:flex-row gap-2 sm:gap-4 items-end">
+                 <div class="text-right flex flex-col sm:flex-row gap-2 sm:gap-4 items-end mt-4 sm:mt-0">
                     <div>
                         <div id="local-time" class="text-2xl font-semibold text-white"></div>
                         <p class="text-sm text-gray-400">Ora locale (Giappone)</p>
@@ -560,9 +577,9 @@
             </header>
             <main class="p-4 sm:p-6">
                 <!-- Immagine di presentazione per la pagina di dettaglio del giorno -->
-                <img id="day-detail-title-image" src="" alt="Immagine del luogo" class="w-full h-48 object-cover rounded-lg mb-6 shadow-md">
+                <img id="day-detail-title-image" src="" alt="Immagine del luogo" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
 
-                <div class="bg-gray-800/50 p-4 sm:p-6 rounded-lg mb-6 border border-gray-700">
+                <div class="bg-gray-800/50 p-4 sm:p-6 rounded-lg mb-6 border border-gray-700 text-center">
                     <h2 id="location" class="text-3xl font-bold text-white"></h2>
                     <p id="date" class="text-indigo-400"></p>
                 </div>
@@ -576,16 +593,11 @@
                     <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-indigo-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
                         <i data-lucide="keyboard" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Tastiera: Italiano</span>
+                        </button>
+                    <button id="clear-translation-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                        <i data-lucide="eraser" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Pulisci</span>
                     </button>
-                    <div class="flex gap-2 mt-3">
-                        <button id="add-original-note-btn" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="arrow-up" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Originale agli appunti</span>
-                        </button>
-                        <button id="add-translated-note-btn" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="arrow-up" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Traduzione agli appunti</span>
-                        </button>
                     </div>
                 </div>
             </main>
