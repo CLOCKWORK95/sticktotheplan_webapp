@@ -2781,7 +2781,7 @@
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
                             <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="todays-unbooked-pinned-places-content">
                                 <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                                    <i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati per oggi (non prenotati)
+                                    <i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati per oggi
                                 </h3>
                                 <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                             </div>
@@ -2806,7 +2806,7 @@
                         </div>
 
                         <!-- Spese del Giorno (Spostato in fondo) -->
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect lg:col-span-2 order-last">
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
                             <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="expenses-content">
                                 <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
                                     <i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno
@@ -2831,7 +2831,7 @@
                         <div class="lg:col-span-2 text-center mt-6 fade-in-up">
                             <button id="go-to-chat-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-lg">
                                 <i data-lucide="messages-square" class="w-6 h-6"></i>
-                                Vai alla Comunicazione del Giorno
+                                Vai al diario di oggi
                             </button>
                         </div>
                     </div>
@@ -3113,7 +3113,7 @@
         <div id="chat-view" class="view-transition opacity-0 hidden">
             <header class="p-4 sm:p-6 flex justify-center items-center flex-col sm:flex-row">
                 <div class="text-center">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Comunicazione e Appunti</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Diario</h1>
                     <p class="text-gray-400">Gestisci appunti e traduzioni per ogni giorno</p>
                 </div>
             </header>
@@ -3128,7 +3128,7 @@
                 </div>
 
                 <!-- Chat Messages Area -->
-                <div id="chat-messages" class="flex-grow mb-4">
+                <div id="chat-messages" class="flex-grow mb-4 min-h-[300px]">
                     <!-- Chat messages will be loaded here by JS -->
                 </div>
 
