@@ -48,6 +48,7 @@
         let itineraryUnsubscribe = null;
         let backpackUnsubscribe = null; // New unsubscribe for backpack
         let pinnedPlacesUnsubscribe = null; // New unsubscribe for pinned places
+        let chatUnsubscribe = null; // New unsubscribe for chat
         let clockInterval = null;
         let italianClockInterval = null; // New interval for Italian time
         let currentActiveDate = null; // Global variable to store the currently active date
@@ -63,7 +64,6 @@
         let currentPinnedPlaceBookedFilter = 'Tutti'; // 'Tutti', 'Prenotati', 'Non Prenotati'
         let currentPinnedPlaceDateFilter = ''; // YYYY-MM-DD string
 
-
         // Variabili per la gestione dello swipe
         let touchStartX = 0;
         let touchEndX = 0;
@@ -76,18 +76,21 @@
         const dayDetailView = document.getElementById('day-detail-view');
         const backpackView = document.getElementById('backpack-view'); // New backpack view
         const mapView = document.getElementById('map-view'); // New map view
+        const chatView = document.getElementById('chat-view'); // New chat view
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
-        const logoutButton = document.getElementById('logout-btn');
-        const translateInputIt = document.getElementById('translate-input-it'); // Added for keyboard toggle
-        const translateOutputJp = document.getElementById('translate-output-jp'); // Added for keyboard toggle
+        // const translateInputIt = document.getElementById('translate-input-it'); // Removed: This element is no longer in day-detail-view
+        // const translateOutputJp = document.getElementById('translate-output-jp'); // Removed: This element is no longer in day-detail-view
 
         // Logica di autenticazione e navigazione
         onAuthStateChanged(auth, user => {
             if (user) {
                 loginContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
-                setupInitialItinerary().then(loadItineraryAndInitApp);
+                setupInitialItinerary().then(() => {
+                    loadItineraryAndInitApp();
+                    setupAppEventListeners(); // Chiamata qui dopo il login
+                });
             } else {
                 loginContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
@@ -98,6 +101,7 @@
                 if (currentDayUnsubscribeUnbookedPinnedPlaces) currentDayUnsubscribeUnbookedPinnedPlaces(); // Clear unbooked pinned places listener
                 if (backpackUnsubscribe) backpackUnsubscribe(); // Clear backpack listener
                 if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
+                if (chatUnsubscribe) chatUnsubscribe(); // Clear chat listener
                 if(clockInterval) clearInterval(clockInterval);
                 if(italianClockInterval) clearInterval(italianClockInterval); // Clear Italian clock interval
             }
@@ -115,28 +119,172 @@
                 });
         });
 
-        logoutButton.addEventListener('click', () => signOut(auth));
-        
-        // Navigation buttons in the fixed header
-        document.getElementById('nav-itinerary-btn').addEventListener('click', () => navigateTo('home'));
-        document.getElementById('nav-backpack-btn').addEventListener('click', () => {
-            navigateTo('backpack');
-            loadAndDisplayBackpackItems(); // Load backpack items when navigating to backpack view
-        });
-        document.getElementById('nav-map-btn').addEventListener('click', () => {
-            navigateTo('map');
-            loadGoogleMapsScript(); // Load Google Maps API when navigating to map view
-            populateMapCityDropdown(); // Populate dropdown when map view is loaded
-            // loadAndDisplayPinnedPlaces will be called by initMap callback
-        });
+        // Funzione per impostare tutti i listener di eventi dell'applicazione dopo il login
+        function setupAppEventListeners() {
+            console.log("Setting up application event listeners...");
 
+            // Navigation buttons in the fixed header
+            document.getElementById('nav-itinerary-btn').addEventListener('click', () => navigateTo('home'));
+            document.getElementById('nav-backpack-btn').addEventListener('click', () => {
+                navigateTo('backpack');
+                loadAndDisplayBackpackItems();
+            });
+            document.getElementById('nav-map-btn').addEventListener('click', () => {
+                navigateTo('map');
+                loadGoogleMapsScript();
+                populateMapCityDropdown();
+            });
+            document.getElementById('nav-chat-btn').addEventListener('click', () => {
+                navigateTo('chat');
+                populateChatDateDropdown();
+                if (currentActiveDate) {
+                    document.getElementById('chat-date-select').value = currentActiveDate;
+                    loadAndDisplayChatMessages(currentActiveDate);
+                } else {
+                    if (tripData.length > 0) {
+                        document.getElementById('chat-date-select').value = tripData[0].date;
+                        loadAndDisplayChatMessages(tripData[0].date);
+                    }
+                }
+            });
+            document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+            // Day Detail View specific listeners
+            document.getElementById('current-location-weather-btn').onclick = () => getGeolocationWeather();
+            document.getElementById('save-expense-btn').onclick = () => saveExpense(currentActiveDate);
+            document.getElementById('go-to-chat-btn').onclick = () => {
+                navigateTo('chat');
+                document.getElementById('chat-date-select').value = currentActiveDate;
+                loadAndDisplayChatMessages(currentActiveDate);
+            };
+
+            // Backpack View specific listeners
+            document.getElementById('add-backpack-item-btn').onclick = saveBackpackItem;
+            document.getElementById('select-pino-backpack-btn').onclick = () => switchBackpack('pino');
+            document.getElementById('select-pina-backpack-btn').onclick = () => switchBackpack('pina');
+            document.getElementById('filter-tutti-btn').onclick = () => filterBackpackItems('Tutti');
+            document.getElementById('filter-abbigliamento-btn').onclick = () => filterBackpackItems('Abbigliamento');
+            document.getElementById('filter-elettronica-btn').onclick = () => filterBackpackItems('Elettronica');
+            document.getElementById('filter-igiene-personale-btn').onclick = () => filterBackpackItems('Igiene Personale');
+            document.getElementById('filter-documenti-btn').onclick = () => filterBackpackItems('Documenti');
+            document.getElementById('filter-farmaci-btn').onclick = () => filterBackpackItems('Farmaci');
+            document.getElementById('filter-varie-btn').onclick = () => filterBackpackItems('Varie');
+
+            // Map View specific listeners
+            document.getElementById('map-city-select').addEventListener('change', changeMapCity);
+            document.getElementById('get-location-btn').addEventListener('click', getGeolocationForMap);
+            document.getElementById('save-pinned-place-btn').addEventListener('click', savePinnedPlace);
+            document.getElementById('search-places-btn').addEventListener('click', searchPlaces);
+            document.getElementById('clear-search-btn').addEventListener('click', clearSearchInputs);
+            document.getElementById('clear-pinned-place-form-btn').addEventListener('click', clearPinnedPlaceForm);
+
+            // Pinned places filter listeners
+            document.getElementById('filter-tag-tutti-btn').addEventListener('click', () => filterPinnedPlacesByTag('Tutti'));
+            document.getElementById('filter-tag-attrazione-btn').addEventListener('click', () => filterPinnedPlacesByTag('Attrazione'));
+            document.getElementById('filter-tag-ristorante-btn').addEventListener('click', () => filterPinnedPlacesByTag('Ristorante'));
+            document.getElementById('filter-tag-trasporto-btn').addEventListener('click', () => filterPinnedPlacesByTag('Trasporto'));
+            document.getElementById('filter-tag-alloggio-btn').addEventListener('click', () => filterPinnedPlacesByTag('Alloggio'));
+            document.getElementById('filter-tag-altro-btn').addEventListener('click', () => filterPinnedPlacesByTag('Altro'));
+
+            document.getElementById('filter-booked-tutti-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Tutti'));
+            document.getElementById('filter-booked-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Prenotati'));
+            document.getElementById('filter-booked-non-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Non Prenotati'));
+
+            document.getElementById('filter-pinned-date-input').addEventListener('change', filterPinnedPlacesByDate);
+            document.getElementById('clear-pinned-date-filter-btn').addEventListener('click', clearPinnedPlaceDateFilter);
+
+            // Chat View specific listeners
+            document.getElementById('chat-date-select').addEventListener('change', (e) => loadAndDisplayChatMessages(e.target.value));
+            document.getElementById('send-chat-message-btn').addEventListener('click', sendChatMessage);
+            document.getElementById('translate-and-add-chat-btn').addEventListener('click', translateAndAddChat);
+            document.getElementById('toggle-keyboard-chat-btn').addEventListener('click', toggleKeyboardLanguageChat);
+            document.getElementById('clear-translation-chat-btn').addEventListener('click', clearTranslationBoxesChat);
+
+            // Handle Enter key in chat input
+            document.getElementById('chat-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                }
+            });
+            document.getElementById('translate-input-chat').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    translateAndAddChat();
+                }
+            });
+
+            // Import JSON button (always available on home view)
+            const importJsonBtn = document.getElementById('import-json-btn');
+            const importJsonInput = document.getElementById('import-json-input');
+            if (importJsonBtn && importJsonInput) {
+                importJsonBtn.addEventListener('click', () => {
+                    importJsonInput.click();
+                });
+                importJsonInput.addEventListener('change', async (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                            try {
+                                const jsonData = JSON.parse(e.target.result);
+                                if (Array.isArray(jsonData)) {
+                                    await importItineraryFromJson(jsonData);
+                                    showCustomAlert('Itinerario importato con successo!');
+                                } else {
+                                    showCustomAlert('Errore: Il file JSON non contiene un array di giorni valido.');
+                                }
+                            } catch (error) {
+                                console.error("Errore durante la lettura o il parsing del JSON:", error);
+                                showCustomAlert('Errore durante l\'importazione del file JSON. Assicurati che sia un formato valido.');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                });
+            }
+
+            // Aggiungi listener per gli eventi touch allo day-content-wrapper
+            const dayContentWrapper = document.getElementById('day-content-wrapper');
+            if (dayContentWrapper) {
+                dayContentWrapper.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                });
+
+                dayContentWrapper.addEventListener('touchmove', (e) => {
+                    if (Math.abs(e.touches[0].clientX - touchStartX) > 10) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                dayContentWrapper.addEventListener('touchend', (e) => {
+                    touchEndX = e.changedTouches[0].clientX;
+                    handleSwipe();
+                });
+            }
+
+            // Set initial filter button states for Backpack and Map views
+            filterBackpackItems('Tutti'); // This will also apply the correct theme highlight
+            filterPinnedPlacesByTag(currentPinnedPlaceTagFilter);
+            filterPinnedPlacesByBookedStatus(currentPinnedPlaceBookedFilter);
+            // The date filter input will retain its value or be empty by default
+
+            // Event delegation for delete buttons on pinned places list
+            document.getElementById('pinned-places-list').addEventListener('click', (e) => {
+                if (e.target.closest('.delete-pinned-place-btn')) {
+                    const id = e.target.closest('.delete-pinned-place-btn').dataset.id;
+                    deletePinnedPlace(id);
+                }
+            });
+        }
 
         function navigateTo(viewName) {
             const views = {
                 'home': homeView,
                 'day-detail': dayDetailView,
                 'backpack': backpackView,
-                'map': mapView // Add map view
+                'map': mapView, // Add map view
+                'chat': chatView // Add chat view
             };
 
             // Before hiding all views, if current view is map, clear its inputs
@@ -205,6 +353,7 @@
                 
                 populateCityTagDropdown(); // Call after tripData is loaded
                 populateMapCityDropdown(); // Ensure map city dropdown is populated
+                populateChatDateDropdown(); // Populate chat date dropdown
                 renderHomeView();
                 navigateTo('home');
             });
@@ -304,12 +453,13 @@
 
             currentActiveDate = dateString; // Store the current active date
 
-            if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
+            if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes(); // Moved to chat view
             if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
             if (currentDayUnsubscribeBookedPlaces) currentDayUnsubscribeBookedPlaces(); // Clear previous booked places listener
             if (currentDayUnsubscribeUnbookedPinnedPlaces) currentDayUnsubscribeUnbookedPinnedPlaces(); // Clear previous unbooked pinned places listener
             if (backpackUnsubscribe) backpackUnsubscribe(); // Ensure backpack listener is cleared for day view
             if (pinnedPlacesUnsubscribe) pinnedPlacesUnsubscribe(); // Clear pinned places listener
+            if (chatUnsubscribe) chatUnsubscribe(); // Clear chat listener
             if (clockInterval) clearInterval(clockInterval);
             if (italianClockInterval) clearInterval(italianClockInterval); // Clear Italian clock interval
 
@@ -366,21 +516,19 @@
                     </div>`;
             });
 
-            loadAndDisplayNotes(dateString);
+            // loadAndDisplayNotes(dateString); // Moved to chat view
             loadAndDisplayExpenses(dateString);
             loadAndDisplayTodaysBookedPlaces(dateString); // Carica e visualizza le prenotazioni per oggi (solo prenotati)
             loadAndDisplayTodaysUnbookedPinnedPlaces(dateString); // Carica e visualizza i pinnati per oggi (non prenotati)
             renderTodaysBackpackItems(dayData.location.split('/')[0].trim()); // Render backpack items for today's location
             
-            document.getElementById('save-note-btn').onclick = () => saveNote(dateString, null, 'manual'); // Passa 'manual' come sorgente
-            document.getElementById('save-expense-btn').onclick = () => saveExpense(dateString);
-            document.getElementById('translate-btn').onclick = () => translate();
-            document.getElementById('toggle-keyboard-btn').onclick = () => toggleKeyboardLanguage(); // Nuovo listener per il tasto
-            
-            // Nuovo listener per il pulsante "Pulisci"
-            document.getElementById('clear-translation-btn').onclick = () => clearTranslationBoxes();
+            // document.getElementById('save-note-btn').onclick = () => saveNote(dateString, null, 'manual'); // Moved to chat view
+            // document.getElementById('translate-btn').onclick = () => translate(); // Moved to chat view
+            // document.getElementById('toggle-keyboard-btn').onclick = () => toggleKeyboardLanguage(); // Moved to chat view
+            // document.getElementById('clear-translation-btn').onclick = () => clearTranslationBoxes(); // Moved to chat view
             // Nuovo listener per il pulsante "Meteo attuale"
-            document.getElementById('current-location-weather-btn').onclick = () => getGeolocationWeather();
+            // Listener già impostato in setupAppEventListeners()
+            // document.getElementById('current-location-weather-btn').onclick = () => getGeolocationWeather();
 
             // Logica per i pulsanti di navigazione giorno
             const currentIndex = tripData.findIndex(d => d.date === dateString);
@@ -390,7 +538,7 @@
             if (prevDayBtn) {
                 if (currentIndex > 0) {
                     prevDayBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1);
+                    prevDayBtn.onclick = () => navigateDay(currentIndex - 1); // Corretto
                 } else {
                     prevDayBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     prevDayBtn.onclick = null;
@@ -406,6 +554,10 @@
                     nextDayBtn.onclick = null;
                 }
             }
+
+            // Listener per il pulsante "Comunica"
+            // Listener già impostato in setupAppEventListeners()
+            // document.getElementById('go-to-chat-btn').onclick = () => { ... };
 
             lucide.createIcons();
 
@@ -597,6 +749,8 @@
             }
         }
 
+        // Moved to chat view
+        /*
         function loadAndDisplayNotes(dateString) {
             const notesListEl = document.getElementById('notes-list');
             notesListEl.innerHTML = '<li>Caricamento...</li>';
@@ -620,7 +774,10 @@
                 }
             });
         }
+        */
 
+        // Moved to chat view
+        /*
         async function saveNote(dateString, textToSave = null, source = 'manual') { // Aggiungi parametro 'source'
             const input = document.getElementById('note-input');
             const text = textToSave || input.value.trim(); // Usa textToSave se fornito, altrimenti il valore dell'input
@@ -632,6 +789,7 @@
                 }
             }
         }
+        */
 
         function loadAndDisplayExpenses(dateString) {
             const expensesListEl = document.getElementById('expenses-list');
@@ -669,6 +827,8 @@
             }
         }
         
+        // Moved to chat view
+        /*
         async function translate() {
             const inputEl = document.getElementById('translate-input-it');
             const outputEl = document.getElementById('translate-output-jp');
@@ -694,7 +854,7 @@
                 if (!response.ok) {
                     // Tenta di leggere il corpo della risposta come testo per un debug più facile
                     const errorText = await response.text();
-                    console.error("Netlify Function Error Raw Response:", errorText);
+                    console.error("Netlify Function Error Raw Response (Weather):", errorText);
                     let errorMessage = `Errore dalla funzione server: ${response.status} ${response.statusText}`;
                     try {
                         const errorBody = JSON.parse(errorText);
@@ -726,7 +886,10 @@
                 outputEl.value = `Errore di traduzione: ${error.message}. Controlla i log della Netlify Function.`;
             }
         }
+        */
 
+        // Moved to chat view
+        /*
         // Funzione per attivare/disattivare la tastiera giapponese/italiana
         function toggleKeyboardLanguage() {
             // Controlla la lingua corrente dell'input
@@ -746,12 +909,16 @@
             }
             lucide.createIcons(); // Aggiorna l'icona
         }
+        */
 
+        // Moved to chat view
+        /*
         // Nuova funzione per pulire i campi di testo della traduzione
         function clearTranslationBoxes() {
             document.getElementById('translate-input-it').value = '';
             document.getElementById('translate-output-jp').value = '';
         }
+        */
 
         // Funzioni per la sezione Zaino
         async function loadAndDisplayBackpackItems() {
@@ -1185,7 +1352,11 @@
             }
 
             try {
-                const response = await fetch('/.netlify/functions/getGoogleMapsApiKey');
+                const response = await fetch('/.netlify/functions/getGoogleMapsApiKey', {
+                    method: 'POST', // Use POST for Netlify Functions
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}) // Empty body if no data is needed
+                });
                 if (!response.ok) {
                     const errorBody = await response.json();
                     throw new Error(`Errore nel recupero della chiave API di Google Maps: ${errorBody.message || 'Errore sconosciuto'}`);
@@ -1317,6 +1488,12 @@
                 pinnedPlacesQuery = query(pinnedPlacesQuery, where("reservationDate", "==", currentPinnedPlaceDateFilter));
             }
 
+            console.log("Firestore Query Filters:", {
+                city: city,
+                tag: currentPinnedPlaceTagFilter,
+                booked: currentPinnedPlaceBookedFilter,
+                date: currentPinnedPlaceDateFilter
+            });
 
             pinnedPlacesUnsubscribe = onSnapshot(pinnedPlacesQuery, (snapshot) => {
                 pinnedPlacesListEl.innerHTML = '';
@@ -1375,6 +1552,7 @@
 
         // Funzioni per i filtri dei luoghi pinnati
         function filterPinnedPlacesByTag(tag) {
+            console.log("Filtering by tag:", tag);
             currentPinnedPlaceTagFilter = tag;
             // Update button styles
             document.querySelectorAll('.filter-tag-btn').forEach(btn => {
@@ -1385,6 +1563,7 @@
         }
 
         function filterPinnedPlacesByBookedStatus(status) {
+            console.log("Filtering by booked status:", status);
             currentPinnedPlaceBookedFilter = status;
             // Update button styles
             document.querySelectorAll('.filter-booked-btn').forEach(btn => {
@@ -1395,12 +1574,15 @@
         }
 
         function filterPinnedPlacesByDate() {
+            console.log("Filtering by date...");
             const dateInput = document.getElementById('filter-pinned-date-input');
             currentPinnedPlaceDateFilter = dateInput.value;
+            console.log("Selected date for filter:", currentPinnedPlaceDateFilter);
             loadAndDisplayPinnedPlaces(currentMapCity);
         }
 
         function clearPinnedPlaceDateFilter() {
+            console.log("Clearing date filter.");
             document.getElementById('filter-pinned-date-input').value = '';
             currentPinnedPlaceDateFilter = '';
             loadAndDisplayPinnedPlaces(currentMapCity);
@@ -1786,7 +1968,7 @@
                 cancelEditPinnedPlace(placeId); // Exit edit mode
                 showCustomAlert('Luogo pinnato aggiornato con successo!');
             } else {
-                showCustomAlert('Per favore, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine).');
+                showCustomAlert('Per favor, compila tutti i campi obbligatori (Nome, Latitudine, Longitudine).');
             }
         }
 
@@ -1803,6 +1985,161 @@
             editButton.classList.remove('hidden');
             deleteButton.classList.remove('hidden');
             editDiv.innerHTML = ''; // Clear edit form content
+        }
+
+        // =================================================================================
+        // CHAT (NOTES & TRANSLATION) FUNCTIONS
+        // =================================================================================
+
+        // Popola la dropdown delle date per la chat
+        function populateChatDateDropdown() {
+            const chatDateSelect = document.getElementById('chat-date-select');
+            chatDateSelect.innerHTML = ''; // Clear existing options
+
+            tripData.forEach(day => {
+                const option = document.createElement('option');
+                option.value = day.date;
+                option.textContent = new Date(day.date).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                chatDateSelect.appendChild(option);
+            });
+        }
+
+        // Carica e visualizza i messaggi della chat (appunti e traduzioni) per un giorno specifico
+        function loadAndDisplayChatMessages(dateString) {
+            const chatMessagesEl = document.getElementById('chat-messages');
+            chatMessagesEl.innerHTML = '<div class="text-gray-400 text-center">Caricamento messaggi...</div>';
+            
+            if (chatUnsubscribe) chatUnsubscribe(); // Unsubscribe from previous listener
+
+            const chatQuery = query(collection(db, "trip-notes"), where("date", "==", dateString));
+            chatUnsubscribe = onSnapshot(chatQuery, (snapshot) => {
+                chatMessagesEl.innerHTML = '';
+                let messages = [];
+                snapshot.forEach(doc => messages.push(doc.data()));
+                messages.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()); // Ordina per data di creazione
+
+                if (messages.length === 0) {
+                    chatMessagesEl.innerHTML = '<div class="text-gray-400 text-center">Nessun messaggio per questo giorno.</div>';
+                } else {
+                    messages.forEach(msg => {
+                        const messageDiv = document.createElement('div');
+                        const timestamp = msg.createdAt.toDate().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                        
+                        if (msg.source === 'translation') {
+                            messageDiv.className = 'flex flex-col items-end mb-2';
+                            messageDiv.innerHTML = `
+                                <div class="bg-blue-600 text-white p-3 rounded-lg max-w-xs break-words shadow-md">
+                                    <p class="text-sm">${msg.text}</p>
+                                    <span class="text-xs text-blue-200 block mt-1">Traduzione - ${timestamp}</span>
+                                </div>
+                            `;
+                        } else { // 'manual' note
+                            messageDiv.className = 'flex flex-col items-start mb-2';
+                            messageDiv.innerHTML = `
+                                <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs break-words shadow-md">
+                                    <p class="text-sm">${msg.text}</p>
+                                    <span class="text-xs text-gray-400 block mt-1">Appunto - ${timestamp}</span>
+                                </div>
+                            `;
+                        }
+                        chatMessagesEl.appendChild(messageDiv);
+                    });
+                    // Scroll to bottom after loading messages
+                    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+                }
+            });
+        }
+
+        // Funzione per inviare un messaggio (appunto) nella chat
+        async function sendChatMessage() {
+            const chatInput = document.getElementById('chat-input');
+            const dateSelect = document.getElementById('chat-date-select');
+            const text = chatInput.value.trim();
+            const dateString = dateSelect.value;
+
+            if (text && dateString) {
+                await addDoc(collection(db, "trip-notes"), { date: dateString, text: text, source: 'manual', createdAt: new Date() });
+                chatInput.value = '';
+                // Scroll to bottom is handled by onSnapshot listener
+            }
+        }
+
+        // Funzione per tradurre il testo e aggiungerlo alla chat
+        async function translateAndAddChat() {
+            const inputEl = document.getElementById('translate-input-chat');
+            const outputEl = document.getElementById('translate-output-chat');
+            const dateSelect = document.getElementById('chat-date-select');
+            const textToTranslate = inputEl.value.trim();
+            const dateString = dateSelect.value;
+
+            if (!textToTranslate || !dateString) return;
+
+            outputEl.value = "Traduzione in corso...";
+            
+            const isJapanese = /[一-龠]+|[ぁ-ゔ]+|[ァ-ヴー]+/.test(textToTranslate);
+            const targetLanguage = isJapanese ? "Italiano" : "Giapponese";
+            const prompt = `Traduci questo in ${targetLanguage}: "${textToTranslate}" Rispondi esclusivamente con la traduzione, senza aggiungere altro.`; 
+
+            try {
+                const response = await fetch('/.netlify/functions/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt, model: GEMINI_MODEL_NAME })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("Netlify Function Error Raw Response (Translate Chat):", errorText);
+                    let errorMessage = `Errore dalla funzione server: ${response.status} ${response.statusText}`;
+                    try {
+                        const errorBody = JSON.parse(errorText);
+                        errorMessage = `Errore dalla funzione server: ${errorBody.message || 'Errore sconosciuto'}`;
+                    } catch (e) {
+                        errorMessage = `Errore dalla funzione server: ${errorText}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                if (result.translation) {
+                    outputEl.value = result.translation;
+                    
+                    // Salva originale e traduzione come messaggi separati nella chat
+                    await addDoc(collection(db, "trip-notes"), { date: dateString, text: `Originale: ${textToTranslate}`, source: 'translation', createdAt: new Date() });
+                    await addDoc(collection(db, "trip-notes"), { date: dateString, text: `Traduzione: ${result.translation}`, source: 'translation', createdAt: new Date() });
+                    inputEl.value = ''; // Clear input after translation
+                } else {
+                    throw new Error("Nessuna traduzione valida ricevuta dalla funzione server.");
+                }
+
+            } catch (error) {
+                console.error("Translation error (Chat):", error);
+                outputEl.value = `Errore di traduzione: ${error.message}.`;
+            }
+        }
+
+        // Funzione per attivare/disattivare la tastiera giapponese/italiana nella chat
+        function toggleKeyboardLanguageChat() {
+            const inputEl = document.getElementById('translate-input-chat');
+            const toggleBtn = document.getElementById('toggle-keyboard-chat-btn');
+            const currentLang = inputEl.lang; // Get current lang from the chat input itself
+
+            if (currentLang === 'it' || !currentLang) {
+                inputEl.lang = 'ja';
+                inputEl.placeholder = 'Scrivi qui in Giapponese...';
+                toggleBtn.innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Giapponese</span>';
+            } else {
+                inputEl.lang = 'it';
+                inputEl.placeholder = 'Scrivi qui in Italiano...';
+                toggleBtn.innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span>';
+            }
+            lucide.createIcons();
+        }
+
+        // Funzione per pulire i campi di testo della traduzione nella chat
+        function clearTranslationBoxesChat() {
+            document.getElementById('translate-input-chat').value = '';
+            document.getElementById('translate-output-chat').value = '';
         }
 
 
@@ -1853,139 +2190,70 @@
             });
         }
 
+        // Funzione per gestire il toggle dei box collapsibili
+        // Ora usa la delegazione degli eventi sul contenitore principale
+        function setupCollapsibleBoxesDelegation() {
+            const appContainer = document.getElementById('app-container');
+            if (!appContainer) {
+                console.error("App container not found for collapsible boxes setup.");
+                return;
+            }
+
+            appContainer.addEventListener('click', (event) => {
+                const header = event.target.closest('.collapsible-header');
+                if (header) {
+                    console.log("Collapsible header clicked!", header);
+                    const targetId = header.dataset.target;
+                    const content = document.getElementById(targetId);
+                    const icon = header.querySelector('.toggle-icon');
+
+                    if (content && icon) { // Ensure content and icon exist
+                        if (content.classList.contains('collapsed')) {
+                            content.classList.remove('collapsed');
+                            icon.setAttribute('data-lucide', 'chevron-up');
+                        } else {
+                            content.classList.add('collapsed');
+                            icon.setAttribute('data-lucide', 'chevron-down');
+                        }
+                        lucide.createIcons(); // Re-render icon
+                    } else {
+                        console.warn(`Collapsible target content or icon not found for targetId: ${targetId}`);
+                    }
+                }
+            });
+        }
+
 
         // Inizializza la tastiera in italiano all'avvio
         document.addEventListener('DOMContentLoaded', () => {
-            translateInputIt.lang = 'it';
-            translateInputIt.placeholder = 'Scrivi qui in Italiano...';
-            // Imposta l'inputmode iniziale se desiderato
-            // translateInputIt.inputmode = 'text';
-            // Imposta il testo iniziale del pulsante
-            document.getElementById('toggle-keyboard-btn').innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span>';
-            
-            // Aggiungi listener per il pulsante "Aggiungi Oggetto" dello zaino
-            document.getElementById('add-backpack-item-btn').onclick = saveBackpackItem;
+            try {
+                console.log("DOM Content Loaded. Initializing app...");
 
-            // Inizializza i pulsanti per la selezione dello zaino
-            document.getElementById('select-pino-backpack-btn').onclick = () => switchBackpack('pino');
-            document.getElementById('select-pina-backpack-btn').onclick = () => switchBackpack('pina');
-            
-            // Imposta il nome dello zaino iniziale e seleziona il pulsante di Pino
-            document.getElementById('current-backpack-name').textContent = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
-            // Initial theme application
-            document.getElementById('backpack-view').classList.add(`backpack-theme-${currentBackpackUser}`);
-            document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+                // Setup collapsible boxes using delegation (this can be done early as it listens on app-container)
+                setupCollapsibleBoxesDelegation();
 
-            // Set initial backpack image
-            const backpackImageEl = document.getElementById('backpack-image');
-            if (backpackImageEl) {
-                backpackImageEl.src = currentBackpackUser === 'pino' ? 'images/zaino_pino.png' : 'images/zaino_pina.png';
-                backpackImageEl.alt = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
-            }
+                // Initialize chat translation input (these elements are part of chat-view, but their initial state can be set)
+                // This part can remain here as it's just setting initial properties, not adding listeners that might fail.
+                document.getElementById('translate-input-chat').lang = 'it';
+                document.getElementById('translate-input-chat').placeholder = 'Scrivi qui in Italiano...';
+                document.getElementById('toggle-keyboard-chat-btn').innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span>';
 
-
-            // Inizializza i filtri dello zaino
-            document.getElementById('filter-tutti-btn').onclick = () => filterBackpackItems('Tutti');
-            document.getElementById('filter-abbigliamento-btn').onclick = () => filterBackpackItems('Abbigliamento');
-            document.getElementById('filter-elettronica-btn').onclick = () => filterBackpackItems('Elettronica');
-            document.getElementById('filter-igiene-personale-btn').onclick = () => filterBackpackItems('Igiene Personale');
-            document.getElementById('filter-documenti-btn').onclick = () => filterBackpackItems('Documenti');
-            document.getElementById('filter-farmaci-btn').onclick = () => filterBackpackItems('Farmaci');
-            document.getElementById('filter-varie-btn').onclick = () => filterBackpackItems('Varie');
-
-            // Applica il filtro iniziale "Tutti"
-            filterBackpackItems('Tutti'); // This will also apply the correct theme highlight
-
-
-            lucide.createIcons();
-
-            // Aggiungi listener per gli eventi touch allo day-content-wrapper
-            const dayContentWrapper = document.getElementById('day-content-wrapper');
-            if (dayContentWrapper) {
-                dayContentWrapper.addEventListener('touchstart', (e) => {
-                    touchStartX = e.touches[0].clientX;
-                });
-
-                dayContentWrapper.addEventListener('touchmove', (e) => {
-                    // Prevent default scrolling only if a horizontal swipe is detected
-                    if (Math.abs(e.touches[0].clientX - touchStartX) > 10) { // Small threshold to differentiate from vertical scroll
-                        e.preventDefault();
-                    }
-                }, { passive: false }); // Use passive: false to allow preventDefault
-
-                dayContentWrapper.addEventListener('touchend', (e) => {
-                    touchEndX = e.changedTouches[0].clientX;
-                    handleSwipe();
-                });
-            }
-
-            // Listener per il pulsante di importazione JSON
-            const importJsonBtn = document.getElementById('import-json-btn');
-            const importJsonInput = document.getElementById('import-json-input');
-
-            if (importJsonBtn && importJsonInput) {
-                importJsonBtn.addEventListener('click', () => {
-                    importJsonInput.click(); // Trigger click on hidden file input
-                });
-
-                importJsonInput.addEventListener('change', async (event) => {
-                    const file = event.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                            try {
-                                const jsonData = JSON.parse(e.target.result);
-                                if (Array.isArray(jsonData)) {
-                                    await importItineraryFromJson(jsonData);
-                                    showCustomAlert('Itinerario importato con successo!');
-                                } else {
-                                    showCustomAlert('Errore: Il file JSON non contiene un array di giorni valido.');
-                                }
-                            } catch (error) {
-                                console.error("Errore durante la lettura o il parsing del JSON:", error);
-                                showCustomAlert('Errore durante l\'importazione del file JSON. Assicurati che sia un formato valido.');
-                            }
-                        };
-                        reader.readAsText(file);
-                    }
-                });
-            }
-
-            // Map specific event listeners
-            document.getElementById('map-city-select').addEventListener('change', changeMapCity);
-            document.getElementById('get-location-btn').addEventListener('click', getGeolocationForMap);
-            document.getElementById('save-pinned-place-btn').addEventListener('click', savePinnedPlace);
-            document.getElementById('search-places-btn').addEventListener('click', searchPlaces); // New search button listener
-            document.getElementById('clear-search-btn').addEventListener('click', clearSearchInputs); // New clear search button listener
-            document.getElementById('clear-pinned-place-form-btn').addEventListener('click', clearPinnedPlaceForm); // New clear pinned place form button
-
-            // Pinned places filter listeners
-            document.getElementById('filter-tag-tutti-btn').addEventListener('click', () => filterPinnedPlacesByTag('Tutti'));
-            document.getElementById('filter-tag-attrazione-btn').addEventListener('click', () => filterPinnedPlacesByTag('Attrazione'));
-            document.getElementById('filter-tag-ristorante-btn').addEventListener('click', () => filterPinnedPlacesByTag('Ristorante'));
-            document.getElementById('filter-tag-trasporto-btn').addEventListener('click', () => filterPinnedPlacesByTag('Trasporto'));
-            document.getElementById('filter-tag-alloggio-btn').addEventListener('click', () => filterPinnedPlacesByTag('Alloggio'));
-            document.getElementById('filter-tag-altro-btn').addEventListener('click', () => filterPinnedPlacesByTag('Altro'));
-
-            document.getElementById('filter-booked-tutti-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Tutti'));
-            document.getElementById('filter-booked-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Prenotati'));
-            document.getElementById('filter-booked-non-prenotati-btn').addEventListener('click', () => filterPinnedPlacesByBookedStatus('Non Prenotati'));
-
-            document.getElementById('filter-pinned-date-input').addEventListener('change', filterPinnedPlacesByDate);
-            document.getElementById('clear-pinned-date-filter-btn').addEventListener('click', clearPinnedPlaceDateFilter);
-
-            // Set initial filter button states
-            document.getElementById('filter-tag-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
-            document.getElementById('filter-booked-tutti-btn').classList.add('bg-red-500', 'ring-2', 'ring-red-300');
-
-
-            // Event delegation for delete buttons on pinned places list
-            document.getElementById('pinned-places-list').addEventListener('click', (e) => {
-                if (e.target.closest('.delete-pinned-place-btn')) {
-                    const id = e.target.closest('.delete-pinned-place-btn').dataset.id;
-                    deletePinnedPlace(id);
+                // Set initial backpack user and theme (these elements are also part of a hidden view, but setting properties is fine)
+                document.getElementById('current-backpack-name').textContent = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
+                document.getElementById('backpack-view').classList.add(`backpack-theme-${currentBackpackUser}`);
+                document.getElementById('select-pino-backpack-btn').classList.add('scale-105', 'ring-2', 'ring-blue-400', 'ring-offset-2', 'ring-offset-gray-900', 'z-10');
+                const backpackImageEl = document.getElementById('backpack-image');
+                if (backpackImageEl) {
+                    backpackImageEl.src = currentBackpackUser === 'pino' ? 'images/zaino_pino.png' : 'images/zaino_pina.png';
+                    backpackImageEl.alt = currentBackpackUser === 'pino' ? 'Zaino di Pino' : 'Zaino di Pina';
                 }
-            });
+
+                lucide.createIcons();
+
+            } catch (error) {
+                console.error("Error during DOMContentLoaded initialization:", error);
+                showCustomAlert(`Errore critico all'avvio dell'app: ${error.message}. Controlla la console per i dettagli.`);
+            }
         });
 
         // Funzione per importare l'itinerario da un array JSON
@@ -2282,6 +2550,50 @@
             border-radius: 0.5rem; /* rounded-lg */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
         }
+
+        /* Collapsible box styles */
+        .collapsible-content {
+            max-height: 1000px; /* Large enough to show all content */
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        .collapsible-header {
+            padding-bottom: 1rem; /* Add some padding below the header */
+            margin-bottom: 0.75rem; /* Add some margin below the header */
+            border-bottom: 1px solid #4a5568; /* Add a subtle border below the header */
+            display: flex; /* Ensure flexbox for alignment of title and icon */
+            justify-content: space-between; /* Space out title and icon */
+            align-items: center; /* Vertically align them */
+        }
+        .collapsible-content.collapsed + .collapsible-header {
+            border-bottom: none; /* Remove border when collapsed */
+        }
+        .collapsible-content:not(.collapsed) + .collapsible-header {
+            margin-bottom: 1rem; /* Restore margin when open */
+        }
+
+        /* Chat view specific styles */
+        #chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            background-color: #1f2937; /* Darker background for chat area */
+            border-radius: 0.5rem;
+            border: 1px solid #4a5568;
+        }
     </style>
 </head>
 <body class="text-gray-300"> <!-- Changed to text-gray-300 for general text on dark background -->
@@ -2323,6 +2635,10 @@
                 <button id="nav-map-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
                     <i data-lucide="map" class="w-5 h-5"></i>
                     <span class="hidden sm:inline">Mappa</span>
+                </button>
+                <button id="nav-chat-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
+                    <i data-lucide="messages-square" class="w-5 h-5"></i>
+                    <span class="hidden sm:inline">Comunicazione</span>
                 </button>
             </div>
             <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-200 flex items-center gap-2">
@@ -2403,44 +2719,120 @@
                 <!-- Wrapper per il contenuto del giorno per le animazioni di scorrimento -->
                 <div id="day-content-wrapper">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="cloud-sun" class="w-5 h-5 text-red-400"></i>Meteo</h3><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                                <i data-lucide="map-pin" class="w-4 h-4"></i>
-                                <span class="hidden sm:inline">Meteo attuale</span>
-                            </button></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio</h3><div id="accommodation-widget"></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-4 flex items-center gap-2 text-white"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti ed Eventi</h3><div id="travel-events-widget" class="space-y-4"></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno</h3><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="notebook-pen" class="w-5 h-5 text-red-400"></i>Appunti</h3><ul id="notes-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><textarea id="note-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto..."></textarea><button id="save-note-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Salva Appunto</button></div>
+                        <!-- Meteo -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="weather-content">
+                                <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                                    <i data-lucide="cloud-sun" class="w-5 h-5 text-red-400"></i>Meteo
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="weather-content" class="collapsible-content">
+                                <div id="weather-widget"></div>
+                                <button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                    <span class="hidden sm:inline">Meteo attuale</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Alloggio -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="accommodation-content">
+                                <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                                    <i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="accommodation-content" class="collapsible-content">
+                                <div id="accommodation-widget"></div>
+                            </div>
+                        </div>
+
+                        <!-- Spostamenti ed Eventi -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect">
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="travel-events-content">
+                                <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                                    <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti ed Eventi
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="travel-events-content" class="collapsible-content">
+                                <div id="travel-events-widget" class="space-y-4"></div>
+                            </div>
+                        </div>
                         
-                        <!-- Nuovo box: Prenotati per oggi -->
+                        <!-- Prenotati per oggi -->
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
-                            <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                                <i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Prenotati per oggi
-                            </h3>
-                            <ul id="todays-booked-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                                <!-- Le prenotazioni verranno caricate qui da JS -->
-                            </ul>
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="todays-booked-places-content">
+                                <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                                    <i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Prenotati per oggi
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="todays-booked-places-content" class="collapsible-content">
+                                <ul id="todays-booked-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                    <!-- Le prenotazioni verranno caricate qui da JS -->
+                                </ul>
+                            </div>
                         </div>
 
-                        <!-- Nuovo box: Pinnati per oggi (non prenotati) -->
+                        <!-- Pinnati per oggi (non prenotati) -->
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
-                            <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                                <i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati per oggi (non prenotati)
-                            </h3>
-                            <ul id="todays-unbooked-pinned-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                                <!-- I luoghi pinnati non prenotati verranno caricati qui da JS -->
-                            </ul>
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="todays-unbooked-pinned-places-content">
+                                <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                                    <i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati per oggi (non prenotati)
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="todays-unbooked-pinned-places-content" class="collapsible-content">
+                                <ul id="todays-unbooked-pinned-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                    <!-- I luoghi pinnati non prenotati verranno caricati qui da JS -->
+                                </ul>
+                            </div>
                         </div>
 
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Lo Zaino di Oggi</h3><div id="todays-backpack-widget" class="space-y-2"></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up hover-shadow-effect"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Comunicazione</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="text-gray-300"><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-it" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea></div><div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-jp" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea></div></div><button id="translate-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Traduci</button><button id="toggle-keyboard-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
-                            <i data-lucide="keyboard" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Tastiera: Italiano</span>
+                        <!-- Lo Zaino di Oggi -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="todays-backpack-content">
+                                <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                                    <i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Lo Zaino di Oggi
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="todays-backpack-content" class="collapsible-content">
+                                <div id="todays-backpack-widget" class="space-y-2"></div>
+                            </div>
+                        </div>
+
+                        <!-- Spese del Giorno (Spostato in fondo) -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect lg:col-span-2 order-last">
+                            <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="expenses-content">
+                                <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                                    <i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno
+                                </h3>
+                                <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                            </div>
+                            <div id="expenses-content" class="collapsible-content">
+                                <ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul>
+                                <div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white">
+                                    <span>Totale Giorno:</span>
+                                    <span id="total-expenses">0 ¥</span>
+                                </div>
+                                <div class="mt-4 flex gap-2">
+                                    <input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 border rounded-md text-sm">
+                                    <input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 border rounded-md text-sm">
+                                </div>
+                                <button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200">Aggiungi Spesa</button>
+                            </div>
+                        </div>
+
+                        <!-- Pulsante "Comunica" che rimanda alla nuova sezione Chat -->
+                        <div class="lg:col-span-2 text-center mt-6 fade-in-up">
+                            <button id="go-to-chat-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-lg">
+                                <i data-lucide="messages-square" class="w-6 h-6"></i>
+                                Vai alla Comunicazione del Giorno
                             </button>
-                        <button id="clear-translation-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="eraser" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Pulisci</span>
-                        </button>
                         </div>
                     </div>
                 </div>
@@ -2544,150 +2936,237 @@
             </header>
             <main class="p-4 sm:p-6">
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="map-pin" class="w-5 h-5 text-red-400"></i>Controlli Mappa
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label for="map-city-select" class="block text-sm font-medium text-gray-400 mb-1">Seleziona Città</label>
-                            <select id="map-city-select" class="form-input w-full p-2 border rounded-md text-sm">
-                                <!-- Populated by JS -->
-                            </select>
-                        </div>
-                        <div>
-                            <label for="radius-input" class="block text-sm font-medium text-gray-400 mb-1">Raggio (km) per Posizione Attuale</label>
-                            <input type="number" id="radius-input" class="form-input w-full p-2 border rounded-md text-sm" value="5" min="1">
-                        </div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="map-controls-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="map-pin" class="w-5 h-5 text-red-400"></i>Controlli Mappa
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                     </div>
-                    <button id="get-location-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
-                        <i data-lucide="locate-fixed" class="w-5 h-5"></i>
-                        Ottieni Posizione Attuale
-                    </button>
-                    <div class="mt-4">
-                        <label for="search-query-input" class="block text-sm font-medium text-gray-400 mb-1">Cerca un luogo</label>
-                        <input type="text" id="search-query-input" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Ristorante ramen, Tempio, Parco...">
-                        <button id="search-places-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
-                            <i data-lucide="search" class="w-5 h-5"></i>
-                            Cerca Luoghi
+                    <div id="map-controls-content" class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="map-city-select" class="block text-sm font-medium text-gray-400 mb-1">Seleziona Città</label>
+                                <select id="map-city-select" class="form-input w-full p-2 border rounded-md text-sm">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div>
+                                <label for="radius-input" class="block text-sm font-medium text-gray-400 mb-1">Raggio (km) per Posizione Attuale</label>
+                                <input type="number" id="radius-input" class="form-input w-full p-2 border rounded-md text-sm" value="5" min="1">
+                            </div>
+                        </div>
+                        <button id="get-location-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                            <i data-lucide="locate-fixed" class="w-5 h-5"></i>
+                            Ottieni Posizione Attuale
                         </button>
-                        <button id="clear-search-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="eraser" class="w-4 h-4"></i>
-                            <span class="hidden sm:inline">Pulisci Ricerca</span>
-                        </button>
+                        <div class="mt-4">
+                            <label for="search-query-input" class="block text-sm font-medium text-gray-400 mb-1">Cerca un luogo</label>
+                            <input type="text" id="search-query-input" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Ristorante ramen, Tempio, Parco...">
+                            <button id="search-places-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                                <i data-lucide="search" class="w-5 h-5"></i>
+                                Cerca Luoghi
+                            </button>
+                            <button id="clear-search-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                                <i data-lucide="eraser" class="w-4 h-4"></i>
+                                <span class="hidden sm:inline">Pulisci Ricerca</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.1s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Mappa
-                    </h3>
-                    <div id="map"></div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="map-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="map" class="w-5 h-5 text-red-400"></i>Mappa
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                    </div>
+                    <div id="map-content" class="collapsible-content">
+                        <div id="map"></div>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.2s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Risultati Ricerca
-                    </h3>
-                    <ul id="search-results-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
-                        <li class="text-gray-400">Nessun risultato di ricerca.</li>
-                    </ul>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="search-results-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Risultati Ricerca
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                    </div>
+                    <div id="search-results-content" class="collapsible-content">
+                        <ul id="search-results-list" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                            <li class="text-gray-400">Nessun risultato di ricerca.</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.3s;">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label for="pinned-place-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Luogo</label>
-                            <input type="text" id="pinned-place-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Tempio Senso-ji">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="pinned-place-lat" class="block text-sm font-medium text-gray-400 mb-1">Latitudine</label>
-                                <input type="number" id="pinned-place-lat" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Latitudine">
-                            </div>
-                            <div>
-                                <label for="pinned-place-lng" class="block text-sm font-medium text-gray-400 mb-1">Longitudine</label>
-                                <input type="number" id="pinned-place-lng" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Longitudine">
-                            </div>
-                        </div>
-                        <div>
-                            <label for="pinned-place-date" class="block text-sm font-medium text-gray-400 mb-1">Data Prenotazione (Opz.)</label>
-                            <input type="date" id="pinned-place-date" class="form-input w-full p-2 border rounded-md text-sm">
-                        </div>
-                        <div>
-                            <label for="pinned-place-time" class="block text-sm font-medium text-gray-400 mb-1">Ora Prenotazione (Opz.)</label>
-                            <input type="time" id="pinned-place-time" class="form-input w-full p-2 border rounded-md text-sm">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-tag" class="block text-sm font-medium text-gray-400 mb-1">Tag</label>
-                            <select id="pinned-place-tag" class="form-input w-full p-2 border rounded-md text-sm">
-                                <option>Attrazione</option>
-                                <option>Ristorante</option>
-                                <option>Trasporto</option>
-                                <option>Alloggio</option>
-                                <option>Altro</option>
-                            </select>
-                        </div>
-                        <div class="md:col-span-2 flex items-center gap-2 mt-2">
-                            <input type="checkbox" id="pinned-place-is-booked" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer">
-                            <label for="pinned-place-is-booked" class="text-sm font-medium text-gray-400">Prenotato</label>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-booking-file-link" class="block text-sm font-medium text-gray-400 mb-1">Link file prenotazione (Drive, Opz.)</label>
-                            <input type="url" id="pinned-place-booking-file-link" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. https://drive.google.com/link-al-file">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
-                            <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
-                        </div>
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="add-pinned-place-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="bookmark" class="w-5 h-5 text-red-400"></i>Aggiungi Nuovo Luogo Pinnato
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
                     </div>
-                    <button id="save-pinned-place-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
-                        Salva Luogo Pinnato
-                    </button>
-                    <button id="clear-pinned-place-form-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                        <i data-lucide="eraser" class="w-4 h-4"></i>
-                        <span class="hidden sm:inline">Pulisci Modulo</span>
-                    </button>
+                    <div id="add-pinned-place-content" class="collapsible-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="pinned-place-name" class="block text-sm font-medium text-gray-400 mb-1">Nome Luogo</label>
+                                <input type="text" id="pinned-place-name" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Tempio Senso-ji">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="pinned-place-lat" class="block text-sm font-medium text-gray-400 mb-1">Latitudine</label>
+                                    <input type="number" id="pinned-place-lat" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Latitudine">
+                                </div>
+                                <div>
+                                    <label for="pinned-place-lng" class="block text-sm font-medium text-gray-400 mb-1">Longitudine</label>
+                                    <input type="number" id="pinned-place-lng" class="form-input w-full p-2 border rounded-md text-sm" step="0.000001" placeholder="Longitudine">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="pinned-place-date" class="block text-sm font-medium text-gray-400 mb-1">Data Prenotazione (Opz.)</label>
+                                <input type="date" id="pinned-place-date" class="form-input w-full p-2 border rounded-md text-sm">
+                            </div>
+                            <div>
+                                <label for="pinned-place-time" class="block text-sm font-medium text-gray-400 mb-1">Ora Prenotazione (Opz.)</label>
+                                <input type="time" id="pinned-place-time" class="form-input w-full p-2 border rounded-md text-sm">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-tag" class="block text-sm font-medium text-gray-400 mb-1">Tag</label>
+                                <select id="pinned-place-tag" class="form-input w-full p-2 border rounded-md text-sm">
+                                    <option>Attrazione</option>
+                                    <option>Ristorante</option>
+                                    <option>Trasporto</option>
+                                    <option>Alloggio</option>
+                                    <option>Altro</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2 flex items-center gap-2 mt-2">
+                                <input type="checkbox" id="pinned-place-is-booked" class="form-checkbox h-5 w-5 text-green-500 rounded-md border-gray-600 bg-gray-800 cursor-pointer">
+                                <label for="pinned-place-is-booked" class="text-sm font-medium text-gray-400">Prenotato</label>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-booking-file-link" class="block text-sm font-medium text-gray-400 mb-1">Link file prenotazione (Drive, Opz.)</label>
+                                <input type="url" id="pinned-place-booking-file-link" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. https://drive.google.com/link-al-file">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="pinned-place-notes" class="block text-sm font-medium text-gray-400 mb-1">Note</label>
+                                <textarea id="pinned-place-notes" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Es. Non accetta prenotazioni, solo contanti."></textarea>
+                            </div>
+                        </div>
+                        <button id="save-pinned-place-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
+                            Salva Luogo Pinnato
+                        </button>
+                        <button id="clear-pinned-place-form-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="eraser" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Pulisci Modulo</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 mt-6 fade-in-up hover-shadow-effect" style="animation-delay: 0.4s;">
+                    <div class="flex justify-between items-center cursor-pointer collapsible-header" data-target="pinned-places-list-content">
+                        <h3 class="font-semibold text-lg flex items-center gap-2 text-white">
+                            <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
+                        </h3>
+                        <i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i>
+                    </div>
+                    <div id="pinned-places-list-content" class="collapsible-content">
+                        <!-- Filter buttons for Pinned Places -->
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Tag:</h4>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <button id="filter-tag-tutti-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                                <button id="filter-tag-attrazione-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Attrazione</button>
+                                <button id="filter-tag-ristorante-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Ristorante</button>
+                                <button id="filter-tag-trasporto-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Trasporto</button>
+                                <button id="filter-tag-alloggio-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Alloggio</button>
+                                <button id="filter-tag-altro-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Altro</button>
+                            </div>
+
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Stato Prenotazione:</h4>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <button id="filter-booked-tutti-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
+                                <button id="filter-booked-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Prenotati</button>
+                                <button id="filter-booked-non-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Non Prenotati</button>
+                            </div>
+
+                            <h4 class="font-semibold text-md mb-2 text-white">Filtra per Giorno di Prenotazione:</h4>
+                            <div class="flex gap-2">
+                                <input type="date" id="filter-pinned-date-input" class="form-input flex-1 p-2 border rounded-md text-sm">
+                                <button id="clear-pinned-date-filter-btn" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 text-sm flex items-center justify-center gap-1">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                    <span class="hidden sm:inline">Cancella</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                            <!-- Pinned places will be loaded here by JS -->
+                        </ul>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Chat View (New) -->
+        <div id="chat-view" class="view-transition opacity-0 hidden">
+            <header class="p-4 sm:p-6 flex justify-center items-center flex-col sm:flex-row">
+                <div class="text-center">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Comunicazione e Appunti</h1>
+                    <p class="text-gray-400">Gestisci appunti e traduzioni per ogni giorno</p>
+                </div>
+            </header>
+            <main class="p-4 sm:p-6 flex flex-col h-[calc(100vh-128px)]"> <!-- Adjust height to fill remaining space -->
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect mb-6">
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
-                        <i data-lucide="list-checks" class="w-5 h-5 text-red-400"></i>Luoghi Pinnati per <span id="current-map-city-display" class="ml-1 font-bold">Tokyo</span>
+                        <i data-lucide="calendar" class="w-5 h-5 text-red-400"></i>Seleziona Giorno
                     </h3>
-                    <!-- Filter buttons for Pinned Places -->
-                    <div class="mb-4">
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Tag:</h4>
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            <button id="filter-tag-tutti-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
-                            <button id="filter-tag-attrazione-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Attrazione</button>
-                            <button id="filter-tag-ristorante-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Ristorante</button>
-                            <button id="filter-tag-trasporto-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Trasporto</button>
-                            <button id="filter-tag-alloggio-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Alloggio</button>
-                            <button id="filter-tag-altro-btn" class="filter-tag-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Altro</button>
-                        </div>
+                    <select id="chat-date-select" class="form-input w-full p-2 border rounded-md text-sm">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
 
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Stato Prenotazione:</h4>
-                        <div class="flex flex-wrap gap-2 mb-4">
-                            <button id="filter-booked-tutti-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Tutti</button>
-                            <button id="filter-booked-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Prenotati</button>
-                            <button id="filter-booked-non-prenotati-btn" class="filter-booked-btn bg-red-700 hover:bg-red-800 text-white p-2 rounded-md transition-colors duration-200 text-sm">Non Prenotati</button>
-                        </div>
+                <!-- Chat Messages Area -->
+                <div id="chat-messages" class="flex-grow mb-4">
+                    <!-- Chat messages will be loaded here by JS -->
+                </div>
 
-                        <h4 class="font-semibold text-md mb-2 text-white">Filtra per Giorno di Prenotazione:</h4>
-                        <div class="flex gap-2">
-                            <input type="date" id="filter-pinned-date-input" class="form-input flex-1 p-2 border rounded-md text-sm">
-                            <button id="clear-pinned-date-filter-btn" class="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 text-sm flex items-center justify-center gap-1">
-                                <i data-lucide="x" class="w-4 h-4"></i>
-                                <span class="hidden sm:inline">Cancella</span>
-                            </button>
+                <!-- Chat Input and Send Button -->
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect mb-6">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="message-square-plus" class="w-5 h-5 text-red-400"></i>Scrivi un Appunto
+                    </h3>
+                    <textarea id="chat-input" rows="2" class="form-input w-full p-2 border rounded-md text-sm" placeholder="Scrivi un appunto o un messaggio..."></textarea>
+                    <button id="send-chat-message-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">
+                        Invia Appunto
+                    </button>
+                </div>
+
+                <!-- Translation Section -->
+                <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up hover-shadow-effect">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white">
+                        <i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Traduttore
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="text-gray-300">
+                            <label class="text-sm font-medium">Italiano / Giapponese</label>
+                            <textarea id="translate-input-chat" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" placeholder="Scrivi qui..." lang="it"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium">Traduzione</label>
+                            <textarea id="translate-output-chat" rows="3" class="form-input w-full mt-1 p-2 border rounded-md" readonly placeholder="Traduzione..."></textarea>
                         </div>
                     </div>
-                    
-                    <ul id="pinned-places-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
-                        <!-- Pinned places will be loaded here by JS -->
-                    </ul>
+                    <button id="translate-and-add-chat-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200">Traduci e Aggiungi a Chat</button>
+                    <button id="toggle-keyboard-chat-btn" class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2">
+                        <i data-lucide="keyboard" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Tastiera: Italiano</span>
+                    </button>
+                    <button id="clear-translation-chat-btn" class="mt-2 w-full bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
+                        <i data-lucide="eraser" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Pulisci</span>
+                    </button>
                 </div>
             </main>
         </div>
