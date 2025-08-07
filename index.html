@@ -63,10 +63,6 @@
         let currentPinnedPlaceBookedFilter = 'Tutti';
         let currentPinnedPlaceDateFilter = '';
 
-        let touchStartX = 0;
-        let touchEndX = 0;
-        const swipeThreshold = 50;
-
         // Elementi UI
         const loginContainer = document.getElementById('login-container');
         const appContainer = document.getElementById('app-container');
@@ -215,14 +211,6 @@
                 });
             }
             
-            // Swipe listener
-            /*const dayContentWrapper = document.getElementById('day-content-wrapper');
-            if (dayContentWrapper) {
-                dayContentWrapper.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
-                dayContentWrapper.addEventListener('touchmove', (e) => { if (Math.abs(e.touches[0].clientX - touchStartX) > 10) { e.preventDefault(); } }, { passive: false });
-                dayContentWrapper.addEventListener('touchend', (e) => { touchEndX = e.changedTouches[0].clientX; handleSwipe(); });
-            }*/
-
             // Event delegation for dynamic content
             document.getElementById('pinned-places-list').addEventListener('click', (e) => {
                 if (e.target.closest('.delete-pinned-place-btn')) {
@@ -261,6 +249,25 @@
                     if (await showCustomConfirm("Sei sicuro di voler eliminare questo evento?")) {
                         await deleteEventItem(dayData.date, e.target.closest('.delete-event-btn').dataset.index);
                     }
+                }
+                
+                // NUOVI LISTENER PER PINNATI DI OGGI
+                if (e.target.closest('.book-pinned-place-btn')) {
+                    const placeId = e.target.closest('.book-pinned-place-btn').dataset.id;
+                    editBookPinnedPlace(placeId);
+                }
+                if (e.target.closest('.unpin-pinned-place-btn')) {
+                    const placeId = e.target.closest('.unpin-pinned-place-btn').dataset.id;
+                    if (await showCustomConfirm("Rimuovere questo luogo dalla data odierna? Rimarrà comunque pinnato sulla mappa generale.")) {
+                        await unpinPinnedPlace(placeId);
+                    }
+                }
+                if (e.target.closest('.save-booking-btn')) {
+                    const placeId = e.target.closest('.save-booking-btn').dataset.id;
+                    await saveBookedPinnedPlace(placeId);
+                }
+                if (e.target.closest('.cancel-booking-btn')) {
+                    renderDayDetailView(currentActiveDate);
                 }
             });
 
@@ -327,20 +334,19 @@
                 populateMapCityDropdown();
                 populateChatDateDropdown();
                 renderHomeView();
-                navigateTo('home'); // PUNTO 1: Naviga alla home all'avvio
+                navigateTo('home');
             });
         }
         
-        // PUNTO 2: Mapping con immagini locali
         const locationImages = {
             "Tokyo": "images/tokyo.jpg",
             "Ryokan (Takaragawa Onsen)": "images/takaragawaonsen.jpg",
             "Kanazawa": "images/kanazawa.jpg",
-            "Shirakawa-go": "images/shirakawa_go.jpg",
+            "Shirakawa-go": "images/shirakawago.jpg",
             "Kyoto": "images/kyoto.jpg",
             "Osaka": "images/osaka.jpeg",
             "Nara": "images/nara.jpg",
-            "Volo di Ritorno": "images/volo_ritorno.jpg",
+            "Volo di Ritorno": "images/tokyo2.jpg",
             "default": "images/giappone.jpg"
         };
 
@@ -461,10 +467,9 @@
                 <div id="accommodation-edit" class="hidden"></div>
             `;
 
-            // CORREZIONE BUG LAYOUT: Render Travel & Events in contenitori separati
             const travelEventsListEl = document.getElementById('travel-events-list');
-            travelEventsListEl.innerHTML = ''; // Pulisci la lista
-            document.getElementById('travel-event-form-container').innerHTML = ''; // Pulisci il contenitore del form
+            travelEventsListEl.innerHTML = ''; 
+            document.getElementById('travel-event-form-container').innerHTML = '';
 
             if ((!dayData.travel || dayData.travel.length === 0) && (!dayData.events || dayData.events.length === 0)) {
                 travelEventsListEl.innerHTML = `<div class="text-gray-400 text-center">Nessuno spostamento o evento per oggi.</div>`;
@@ -696,7 +701,6 @@
             }
         }
         
-        // NUOVE FUNZIONI CRUD PER EVENTI
         function addEventItem(dayData) {
             editEventItem(dayData, -1);
         }
@@ -796,7 +800,6 @@
             }
         }
         
-        // CORREZIONE METEO: Fetch con POST e parsing corretto della risposta
         async function getWeather(latitude, longitude, locationName = 'Posizione attuale') {
             const weatherWidget = document.getElementById('weather-widget');
             weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento meteo per ${locationName}...</div>`;
@@ -944,6 +947,7 @@
             });
         }
 
+        // MODIFICA: Aggiunta pulsanti e form inline in loadAndDisplayTodaysUnbookedPinnedPlaces
         function loadAndDisplayTodaysUnbookedPinnedPlaces(dateString) {
             const listEl = document.getElementById('todays-unbooked-pinned-places-list');
             listEl.innerHTML = '<li class="text-gray-400">Caricamento...</li>';
@@ -953,15 +957,14 @@
                 listEl.innerHTML = '';
                 let places = [];
                 snapshot.forEach(doc => {
-                    const place = doc.data();
+                    const place = { id: doc.id, ...doc.data() };
                     if (place.isBooked === false || typeof place.isBooked === 'undefined') {
-                        places.push({ id: doc.id, ...place });
+                        places.push(place);
                     }
                 });
 
                 const filteredPlaces = places.filter(place => !['Trasporto', 'Alloggio'].includes(place.tag));
 
-                filteredPlaces.sort((a, b) => (a.reservationTime || '00:00').localeCompare(b.reservationTime || '00:00'));
                 if (filteredPlaces.length === 0) {
                     listEl.innerHTML = '<li class="text-gray-400">Nessun luogo pinnato (attrazione/ristorante) per oggi.</li>';
                 } else {
@@ -969,17 +972,75 @@
                         const li = document.createElement('li');
                         li.className = 'bg-orange-400/10 text-orange-200 p-3 rounded-lg text-sm mb-2';
                         li.innerHTML = `
-                            <div class="font-semibold text-white">${place.name}</div>
-                            <div class="text-gray-300 text-xs">${place.tag}</div>
-                            ${place.reservationTime ? `<div class="text-orange-300 text-xs">Ora: ${place.reservationTime}</div>` : ''}
-                            ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
-                            ${place.mapUrl ? `<a href="${place.mapUrl}" target="_blank" class="text-blue-400 hover:underline text-xs block mt-1 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>Mappa</a>` : ''}
+                            <div id="unbooked-display-${place.id}">
+                                <div class="font-semibold text-white">${place.name}</div>
+                                <div class="text-gray-300 text-xs">${place.tag}</div>
+                                ${place.notes ? `<p class="text-gray-400 text-xs mt-1">${place.notes}</p>` : ''}
+                                <div class="flex items-center gap-2 mt-3">
+                                    <button data-id="${place.id}" class="book-pinned-place-btn flex-1 bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-2 rounded-md flex items-center justify-center gap-1"><i data-lucide="calendar-check" class="w-3 h-3"></i>Prenota</button>
+                                    <button data-id="${place.id}" class="unpin-pinned-place-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white text-xs py-1 px-2 rounded-md flex items-center justify-center gap-1"><i data-lucide="calendar-x" class="w-3 h-3"></i>Unpin</button>
+                                </div>
+                            </div>
+                            <div id="unbooked-edit-${place.id}" class="hidden"></div>
                         `;
                         listEl.appendChild(li);
                     });
                 }
                 lucide.createIcons();
             });
+        }
+        
+        // NUOVE FUNZIONI per "Prenota" e "Unpin"
+        async function unpinPinnedPlace(placeId) {
+            const placeRef = doc(db, "pinned-places", placeId);
+            try {
+                await updateDoc(placeRef, {
+                    reservationDate: null,
+                    reservationTime: null
+                });
+                showCustomAlert("Luogo rimosso dalla data odierna.");
+            } catch (error) {
+                console.error("Errore unpin:", error);
+                showCustomAlert("Errore durante la rimozione del pin.");
+            }
+        }
+
+        function editBookPinnedPlace(placeId) {
+            const displayDiv = document.getElementById(`unbooked-display-${placeId}`);
+            const editDiv = document.getElementById(`unbooked-edit-${placeId}`);
+            if (!displayDiv || !editDiv) return;
+
+            displayDiv.classList.add('hidden');
+            editDiv.classList.remove('hidden');
+
+            editDiv.innerHTML = `
+                <div class="flex flex-col gap-2 w-full text-sm">
+                    <p class="font-semibold text-white">Conferma prenotazione</p>
+                    <div><label class="block text-xs text-gray-400">Ora (Opzionale)</label><input type="time" id="booking-time-${placeId}" class="form-input w-full p-1 text-sm"></div>
+                    <div><label class="block text-xs text-gray-400">Link Prenotazione (Opzionale)</label><input type="url" id="booking-link-${placeId}" class="form-input w-full p-1 text-sm" placeholder="https://..."></div>
+                    <div class="flex gap-2 mt-2">
+                        <button data-id="${placeId}" class="save-booking-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md">Conferma</button>
+                        <button data-id="${placeId}" class="cancel-booking-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md">Annulla</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveBookedPinnedPlace(placeId) {
+            const time = document.getElementById(`booking-time-${placeId}`).value;
+            const link = document.getElementById(`booking-link-${placeId}`).value;
+            const placeRef = doc(db, "pinned-places", placeId);
+            try {
+                await updateDoc(placeRef, {
+                    isBooked: true,
+                    reservationTime: time || null,
+                    bookingFileLink: link || null
+                });
+                showCustomAlert("Luogo prenotato con successo!");
+            } catch (error) {
+                console.error("Errore prenotazione:", error);
+                showCustomAlert("Errore durante la prenotazione.");
+            }
         }
         
         async function loadAndDisplayBackpackItems() {
@@ -1234,7 +1295,6 @@
             }
         }
         
-        // PUNTO 3: Ripristino CRUD Luoghi Pinnati
         function loadAndDisplayPinnedPlaces(city) {
             const listEl = document.getElementById('pinned-places-list');
             listEl.innerHTML = '<li class="text-gray-400">Caricamento...</li>';
@@ -1514,14 +1574,6 @@
             data.forEach(day => batch.set(doc(db, "itinerary", day.date), day, { merge: true }));
             await batch.commit();
         }
-        function handleSwipe() {
-            const deltaX = touchEndX - touchStartX;
-            const currentIndex = tripData.findIndex(d => d.date === currentActiveDate);
-            if (Math.abs(deltaX) > swipeThreshold) {
-                if (deltaX > 0 && currentIndex > 0) navigateDay(currentIndex - 1);
-                else if (deltaX < 0 && currentIndex < tripData.length - 1) navigateDay(currentIndex + 1);
-            }
-        }
         
     </script>
 
@@ -1551,7 +1603,7 @@
         
         /* PUNTO 5: Stile "cartaceo" per il diario */
         #chat-messages.paper-style {
-            background-color: #efd8a9; /* Colore carta */
+            background-color: #f3ddb2; /* Colore carta */
             color: #3a3a3a;
             border: 1px solid #e0d9c6;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -1559,11 +1611,11 @@
             height: 400px; overflow-y: auto; display: flex; flex-direction: column; padding: 1rem; border-radius: 0.5rem;
         }
         .chat-message-manual {
-            background-color: #f0ebe0; /* Grigio chiaro per appunti */
-            color: #3a3a3a;
+            background-color: #e3cba9; /* Grigio chiaro per appunti */
+            color: #000000;
         }
         .chat-message-translation {
-            background-color: #e6f0f7; /* Azzurro chiaro per traduzioni */
+            background-color: #b7d493; /* Azzurro chiaro per traduzioni */
             color: #3a3a3a;
         }
     </style>
@@ -1780,16 +1832,16 @@
                     <select id="chat-date-select" class="form-select w-full p-2 text-sm"></select>
                 </div>
                 <div class="fade-in-up">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="book-open" class="w-5 h-5 text-red-400"></i>Diario</h3>
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="book-open" class="w-5 h-5 text-red-400"></i>Diario di oggi</h3>
                     <div id="chat-messages" class="paper-style"></div>
                 </div>
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up mt-6">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="message-square-plus" class="w-5 h-5 text-red-400"></i>Scrivi un Appunto</h3>
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="message-square-plus" class="w-5 h-5 text-red-400"></i>Annotazione</h3>
                     <textarea id="chat-input" rows="2" class="form-input w-full p-2 text-sm" placeholder="Scrivi un appunto..."></textarea>
-                    <button id="send-chat-message-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Invia Appunto</button>
+                    <button id="send-chat-message-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Invia</button>
                 </div>
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up mt-6">
-                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Traduttore</h3>
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Messaggio</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-chat" rows="3" class="form-input w-full mt-1 p-2" lang="it"></textarea></div>
                         <div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-chat" rows="3" class="form-input w-full mt-1 p-2" readonly></textarea></div>
