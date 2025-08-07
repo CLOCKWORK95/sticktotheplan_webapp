@@ -947,7 +947,6 @@
             });
         }
 
-        // MODIFICA: Aggiunta pulsanti e form inline in loadAndDisplayTodaysUnbookedPinnedPlaces
         function loadAndDisplayTodaysUnbookedPinnedPlaces(dateString) {
             const listEl = document.getElementById('todays-unbooked-pinned-places-list');
             listEl.innerHTML = '<li class="text-gray-400">Caricamento...</li>';
@@ -990,7 +989,6 @@
             });
         }
         
-        // NUOVE FUNZIONI per "Prenota" e "Unpin"
         async function unpinPinnedPlace(placeId) {
             const placeRef = doc(db, "pinned-places", placeId);
             try {
@@ -1475,6 +1473,8 @@
             const select = document.getElementById('chat-date-select');
             select.innerHTML = tripData.map(day => `<option value="${day.date}">${new Date(day.date).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</option>`).join('');
         }
+        
+        // MODIFICA: Logica di rendering per messaggi raggruppati
         function loadAndDisplayChatMessages(dateString) {
             const el = document.getElementById('chat-messages');
             el.innerHTML = '<div class="text-gray-400 text-center">Caricamento...</div>';
@@ -1491,8 +1491,26 @@
                     messages.forEach(msg => {
                         const div = document.createElement('div');
                         const time = msg.createdAt.toDate().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-                        div.className = `flex flex-col mb-2 ${msg.source === 'translation' ? 'items-end' : 'items-start'}`;
-                        div.innerHTML = `<div class="p-3 rounded-lg max-w-xs shadow-md ${msg.source === 'translation' ? 'chat-message-translation' : 'chat-message-manual'}"><p class="text-sm">${msg.text}</p><span class="text-xs opacity-70 block mt-1">${msg.source === 'translation' ? 'Traduzione' : 'Appunto'} - ${time}</span></div>`;
+                        
+                        if (msg.source === 'translation' && msg.original && msg.translation) {
+                            // Messaggio di traduzione raggruppato
+                            div.className = `flex flex-col mb-2 items-end`;
+                            div.innerHTML = `
+                                <div class="p-3 rounded-lg max-w-xs shadow-md chat-message-grouped-translation">
+                                    <p class="text-sm font-semibold">${msg.original}</p>
+                                    <hr class="border-gray-400/50 my-2">
+                                    <p class="text-sm">${msg.translation}</p>
+                                    <span class="text-xs opacity-70 block mt-2 text-right">Traduzione - ${time}</span>
+                                </div>`;
+                        } else {
+                            // Messaggio manuale
+                            div.className = `flex flex-col mb-2 items-start`;
+                            div.innerHTML = `
+                                <div class="p-3 rounded-lg max-w-xs shadow-md chat-message-manual">
+                                    <p class="text-sm">${msg.text}</p>
+                                    <span class="text-xs opacity-70 block mt-1">Appunto - ${time}</span>
+                                </div>`;
+                        }
                         el.appendChild(div);
                     });
                     el.scrollTop = el.scrollHeight;
@@ -1507,20 +1525,31 @@
                 input.value = '';
             }
         }
+
+        // MODIFICA: Logica di salvataggio per messaggi raggruppati
         async function translateAndAddChat() {
             const input = document.getElementById('translate-input-chat');
             const output = document.getElementById('translate-output-chat');
             const date = document.getElementById('chat-date-select').value;
-            if (!input.value.trim() || !date) return;
+            const originalText = input.value.trim();
+            if (!originalText || !date) return;
+
             output.value = "Traduzione...";
-            const isJapanese = /[一-龠ぁ-ゔァ-ヴー]/.test(input.value);
-            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${input.value}"`;
+            const isJapanese = /[一-龠ぁ-ゔァ-ヴー]/.test(originalText);
+            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${originalText}"`;
             try {
                 const response = await fetch('/.netlify/functions/translate', { method: 'POST', body: JSON.stringify({ prompt }) });
                 const result = await response.json();
                 if (result.translation) {
                     output.value = result.translation;
-                    await addDoc(collection(db, "trip-notes"), { date, text: `Traduzione: ${result.translation}`, source: 'translation', createdAt: new Date() });
+                    // Salva un singolo documento con entrambi i testi
+                    await addDoc(collection(db, "trip-notes"), { 
+                        date, 
+                        original: originalText,
+                        translation: result.translation,
+                        source: 'translation', 
+                        createdAt: new Date() 
+                    });
                     input.value = '';
                 }
             } catch (error) {
@@ -1601,7 +1630,7 @@
         .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out, margin 0.4s ease-in-out; opacity: 1; }
         .collapsible-content.collapsed { max-height: 0; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; }
         
-        /* PUNTO 5: Stile "cartaceo" per il diario */
+        /* Stile "cartaceo" per il diario */
         #chat-messages.paper-style {
             background-color: #f3ddb2; /* Colore carta */
             color: #3a3a3a;
@@ -1611,11 +1640,11 @@
             height: 400px; overflow-y: auto; display: flex; flex-direction: column; padding: 1rem; border-radius: 0.5rem;
         }
         .chat-message-manual {
-            background-color: #e3cba9; /* Grigio chiaro per appunti */
+            background-color: #e3cba9;
             color: #000000;
         }
-        .chat-message-translation {
-            background-color: #b7d493; /* Azzurro chiaro per traduzioni */
+        .chat-message-grouped-translation {
+            background-color: #d4e4d3; /* Nuovo colore verde salvia */
             color: #3a3a3a;
         }
     </style>
