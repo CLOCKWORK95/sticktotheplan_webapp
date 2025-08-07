@@ -175,13 +175,25 @@
             document.getElementById('clear-pinned-date-filter-btn').addEventListener('click', clearPinnedPlaceDateFilter);
 
             // Chat View
+            const chatInput = document.getElementById('chat-input');
+            const sendChatMessageBtn = document.getElementById('send-chat-message-btn');
+            const translateInput = document.getElementById('translate-input-chat');
+            const translateBtn = document.getElementById('translate-and-add-chat-btn');
+
+            chatInput.addEventListener('input', () => {
+                sendChatMessageBtn.disabled = chatInput.value.trim() === '';
+            });
+            translateInput.addEventListener('input', () => {
+                translateBtn.disabled = translateInput.value.trim() === '';
+            });
+
+            sendChatMessageBtn.addEventListener('click', sendChatMessage);
+            translateBtn.addEventListener('click', translateAndAddChat);
             document.getElementById('chat-date-select').addEventListener('change', (e) => loadAndDisplayChatMessages(e.target.value));
-            document.getElementById('send-chat-message-btn').addEventListener('click', sendChatMessage);
-            document.getElementById('translate-and-add-chat-btn').addEventListener('click', translateAndAddChat);
             document.getElementById('toggle-keyboard-chat-btn').addEventListener('click', toggleKeyboardLanguageChat);
             document.getElementById('clear-translation-chat-btn').addEventListener('click', clearTranslationBoxesChat);
-            document.getElementById('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
-            document.getElementById('translate-input-chat').addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); translateAndAddChat(); } });
+            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
+            translateInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); translateAndAddChat(); } });
 
             // Import JSON
             const importJsonBtn = document.getElementById('import-json-btn');
@@ -1474,7 +1486,6 @@
             select.innerHTML = tripData.map(day => `<option value="${day.date}">${new Date(day.date).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}</option>`).join('');
         }
         
-        // MODIFICA: Logica di rendering per messaggi raggruppati
         function loadAndDisplayChatMessages(dateString) {
             const el = document.getElementById('chat-messages');
             el.innerHTML = '<div class="text-gray-400 text-center">Caricamento...</div>';
@@ -1493,20 +1504,18 @@
                         const time = msg.createdAt.toDate().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
                         
                         if (msg.source === 'translation' && msg.original && msg.translation) {
-                            // Messaggio di traduzione raggruppato
                             div.className = `flex flex-col mb-2 items-end`;
                             div.innerHTML = `
-                                <div class="p-3 rounded-lg max-w-xs shadow-md chat-message-grouped-translation">
+                                <div class="chat-bubble chat-message-grouped-translation">
                                     <p class="text-sm font-semibold">${msg.original}</p>
                                     <hr class="border-gray-400/50 my-2">
                                     <p class="text-sm">${msg.translation}</p>
                                     <span class="text-xs opacity-70 block mt-2 text-right">Traduzione - ${time}</span>
                                 </div>`;
                         } else {
-                            // Messaggio manuale
                             div.className = `flex flex-col mb-2 items-start`;
                             div.innerHTML = `
-                                <div class="p-3 rounded-lg max-w-xs shadow-md chat-message-manual">
+                                <div class="chat-bubble chat-message-manual">
                                     <p class="text-sm">${msg.text}</p>
                                     <span class="text-xs opacity-70 block mt-1">Appunto - ${time}</span>
                                 </div>`;
@@ -1523,10 +1532,10 @@
             if (input.value.trim() && date) {
                 await addDoc(collection(db, "trip-notes"), { date, text: input.value.trim(), source: 'manual', createdAt: new Date() });
                 input.value = '';
+                input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
             }
         }
 
-        // MODIFICA: Logica di salvataggio per messaggi raggruppati
         async function translateAndAddChat() {
             const input = document.getElementById('translate-input-chat');
             const output = document.getElementById('translate-output-chat');
@@ -1536,13 +1545,12 @@
 
             output.value = "Traduzione...";
             const isJapanese = /[一-龠ぁ-ゔァ-ヴー]/.test(originalText);
-            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${originalText}, e rispondi esclusivamente con la traduzione, senza aggiungere altro testo."`;
+            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${originalText}"`;
             try {
                 const response = await fetch('/.netlify/functions/translate', { method: 'POST', body: JSON.stringify({ prompt }) });
                 const result = await response.json();
                 if (result.translation) {
                     output.value = result.translation;
-                    // Salva un singolo documento con entrambi i testi
                     await addDoc(collection(db, "trip-notes"), { 
                         date, 
                         original: originalText,
@@ -1551,6 +1559,8 @@
                         createdAt: new Date() 
                     });
                     input.value = '';
+                    output.value = '';
+                    input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
                 }
             } catch (error) {
                 output.value = `Errore di traduzione.`;
@@ -1564,7 +1574,13 @@
             btn.innerHTML = `<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: ${input.lang === 'ja' ? 'Giapponese' : 'Italiano'}</span>`;
             lucide.createIcons();
         }
-        function clearTranslationBoxesChat() { document.getElementById('translate-input-chat').value = ''; document.getElementById('translate-output-chat').value = ''; }
+        function clearTranslationBoxesChat() { 
+            const input = document.getElementById('translate-input-chat');
+            const output = document.getElementById('translate-output-chat');
+            input.value = '';
+            output.value = '';
+            input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
+        }
 
         function showCustomAlert(message) {
             const modal = document.getElementById('custom-alert-modal');
@@ -1630,22 +1646,45 @@
         .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out, margin 0.4s ease-in-out; opacity: 1; }
         .collapsible-content.collapsed { max-height: 0; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; }
         
-        /* Stile "cartaceo" per il diario */
         #chat-messages.paper-style {
-            background-color: #f3ddb2; /* Colore carta */
+            background-color: #f3ddb2;
             color: #3a3a3a;
             border: 1px solid #e0d9c6;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            font-family: 'Lora', serif; /* Font per lo stile libro */
+            font-family: 'Lora', serif;
             height: 400px; overflow-y: auto; display: flex; flex-direction: column; padding: 1rem; border-radius: 0.5rem;
+        }
+        .chat-bubble {
+            padding: 0.75rem;
+            border-radius: 1rem;
+            max-width: 80%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            position: relative;
         }
         .chat-message-manual {
             background-color: #e3cba9;
             color: #000000;
+            border-bottom-left-radius: 0.25rem;
         }
         .chat-message-grouped-translation {
-            background-color: #d4e4d3; /* Nuovo colore verde salvia */
+            background-color: #b7d493;
             color: #3a3a3a;
+            border-bottom-right-radius: 0.25rem;
+        }
+        .chat-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            height: 20px;
+            width: 20px;
+            background: radial-gradient(circle at 0 0, rgba(0,0,0,0) 20px, #f3ddb2 20px);
+        }
+        .items-start .chat-bubble::after {
+            left: -20px;
+            transform: scaleX(-1);
+        }
+        .items-end .chat-bubble::after {
+            right: -20px;
         }
     </style>
 </head>
@@ -1867,7 +1906,7 @@
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up mt-6">
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="message-square-plus" class="w-5 h-5 text-red-400"></i>Annotazione</h3>
                     <textarea id="chat-input" rows="2" class="form-input w-full p-2 text-sm" placeholder="Scrivi un appunto..."></textarea>
-                    <button id="send-chat-message-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Invia</button>
+                    <button id="send-chat-message-btn" class="mt-3 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>Invia</button>
                 </div>
                 <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up mt-6">
                     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="languages" class="w-5 h-5 text-red-400"></i>Messaggio</h3>
@@ -1875,7 +1914,7 @@
                         <div><label class="text-sm font-medium">Italiano / Giapponese</label><textarea id="translate-input-chat" rows="3" class="form-input w-full mt-1 p-2" lang="it"></textarea></div>
                         <div><label class="text-sm font-medium">Traduzione</label><textarea id="translate-output-chat" rows="3" class="form-input w-full mt-1 p-2" readonly></textarea></div>
                     </div>
-                    <button id="translate-and-add-chat-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Traduci e Aggiungi</button>
+                    <button id="translate-and-add-chat-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>Traduci e Aggiungi</button>
                     <div class="flex gap-2 mt-3">
                         <button id="toggle-keyboard-chat-btn" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md flex items-center justify-center gap-2"><i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span></button>
                         <button id="clear-translation-chat-btn" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-md text-sm"><i data-lucide="eraser" class="w-4 h-4 inline-block"></i> Pulisci</button>
