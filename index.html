@@ -216,12 +216,12 @@
             }
             
             // Swipe listener
-            const dayContentWrapper = document.getElementById('day-content-wrapper');
+            /*const dayContentWrapper = document.getElementById('day-content-wrapper');
             if (dayContentWrapper) {
                 dayContentWrapper.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
                 dayContentWrapper.addEventListener('touchmove', (e) => { if (Math.abs(e.touches[0].clientX - touchStartX) > 10) { e.preventDefault(); } }, { passive: false });
                 dayContentWrapper.addEventListener('touchend', (e) => { touchEndX = e.changedTouches[0].clientX; handleSwipe(); });
-            }
+            }*/
 
             // Event delegation for dynamic content
             document.getElementById('pinned-places-list').addEventListener('click', (e) => {
