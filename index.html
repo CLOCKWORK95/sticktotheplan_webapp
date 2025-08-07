@@ -334,7 +334,7 @@
         // PUNTO 2: Mapping con immagini locali
         const locationImages = {
             "Tokyo": "images/tokyo.jpg",
-            "Ryokan (Takaragawa Onsen)": "images/shirakawago.jpg",
+            "Ryokan (Takaragawa Onsen)": "images/takaragawaonsen.jpg",
             "Kanazawa": "images/kanazawa.jpg",
             "Shirakawa-go": "images/shirakawa_go.jpg",
             "Kyoto": "images/kyoto.jpg",
@@ -461,13 +461,18 @@
                 <div id="accommodation-edit" class="hidden"></div>
             `;
 
-            // Render Travel & Events
-            const travelEventsEl = document.getElementById('travel-events-widget');
-            travelEventsEl.innerHTML = '';
+            // CORREZIONE BUG LAYOUT: Render Travel & Events in contenitori separati
+            const travelEventsListEl = document.getElementById('travel-events-list');
+            travelEventsListEl.innerHTML = ''; // Pulisci la lista
+            document.getElementById('travel-event-form-container').innerHTML = ''; // Pulisci il contenitore del form
+
+            if ((!dayData.travel || dayData.travel.length === 0) && (!dayData.events || dayData.events.length === 0)) {
+                travelEventsListEl.innerHTML = `<div class="text-gray-400 text-center">Nessuno spostamento o evento per oggi.</div>`;
+            }
             
             if (dayData.travel) {
                 dayData.travel.forEach((item, index) => {
-                    travelEventsEl.innerHTML += `
+                    travelEventsListEl.innerHTML += `
                         <div class="p-3 rounded-lg bg-gray-700/30" id="travel-display-${index}">
                             <div class="flex items-start gap-3">
                                 <i data-lucide="train-front" class="w-5 h-5 text-red-400 mt-1 flex-shrink-0"></i>
@@ -491,13 +496,12 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="travel-edit-${index}" class="hidden"></div>
                     `;
                 });
             }
             if (dayData.events) {
                 dayData.events.forEach((item, index) => {
-                    travelEventsEl.innerHTML += `
+                    travelEventsListEl.innerHTML += `
                         <div class="p-3 rounded-lg bg-gray-700/30 mt-3" id="event-display-${index}">
                             <div class="flex items-start gap-3">
                                 <i data-lucide="calendar-check" class="w-5 h-5 text-green-400 mt-1 flex-shrink-0"></i>
@@ -518,23 +522,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="event-edit-${index}" class="hidden"></div>
                         `;
                 });
             }
-
-            // PUNTO 4: Aggiunta pulsanti per Spostamento ed Evento
-            travelEventsEl.innerHTML += `
-                <div class="flex gap-2 mt-4">
-                    <button class="add-travel-btn flex-1 bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Aggiungi Spostamento
-                    </button>
-                    <button class="add-event-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Aggiungi Evento
-                    </button>
-                </div>
-            `;
-
 
             // Load other dynamic sections
             loadAndDisplayExpenses(dateString);
@@ -632,15 +622,13 @@
         function editTravelItem(dayData, index) {
             const isNew = index == -1;
             const item = isNew ? {} : dayData.travel[index];
-            const targetDivId = isNew ? 'travel-events-widget' : `travel-edit-${index}`;
-            const editDiv = document.getElementById(targetDivId);
+            const formContainer = document.getElementById('travel-event-form-container');
 
             if (!isNew) {
                 document.getElementById(`travel-display-${index}`).classList.add('hidden');
             }
             
-            editDiv.classList.remove('hidden');
-            const formHtml = `
+            formContainer.innerHTML = `
                 <div class="p-3 rounded-lg bg-gray-700/50 border border-red-500 mt-3">
                     <h4 class="font-semibold text-white mb-2">${isNew ? 'Nuovo Spostamento' : 'Modifica Spostamento'}</h4>
                     <div class="flex flex-col gap-2 w-full text-sm">
@@ -660,14 +648,6 @@
                     </div>
                 </div>
             `;
-
-            if (isNew) {
-                const tempContainer = document.createElement('div');
-                tempContainer.innerHTML = formHtml;
-                document.getElementById('travel-events-widget').appendChild(tempContainer.firstElementChild);
-            } else {
-                 editDiv.innerHTML = formHtml;
-            }
         }
 
         async function saveEditedTravelItem(dateString, index) {
@@ -724,15 +704,13 @@
         function editEventItem(dayData, index) {
             const isNew = index == -1;
             const item = isNew ? {} : dayData.events[index];
-            const targetDivId = isNew ? 'travel-events-widget' : `event-edit-${index}`;
-            const editDiv = document.getElementById(targetDivId);
+            const formContainer = document.getElementById('travel-event-form-container');
 
             if (!isNew) {
                 document.getElementById(`event-display-${index}`).classList.add('hidden');
             }
             
-            editDiv.classList.remove('hidden');
-            const formHtml = `
+            formContainer.innerHTML = `
                 <div class="p-3 rounded-lg bg-gray-700/50 border border-green-500 mt-3">
                     <h4 class="font-semibold text-white mb-2">${isNew ? 'Nuovo Evento' : 'Modifica Evento'}</h4>
                     <div class="flex flex-col gap-2 w-full text-sm">
@@ -751,13 +729,6 @@
                     </div>
                 </div>
             `;
-            if (isNew) {
-                const tempContainer = document.createElement('div');
-                tempContainer.innerHTML = formHtml;
-                document.getElementById('travel-events-widget').appendChild(tempContainer.firstElementChild);
-            } else {
-                 editDiv.innerHTML = formHtml;
-            }
         }
 
         async function saveEditedEventItem(dateString, index) {
@@ -825,13 +796,20 @@
             }
         }
         
+        // CORREZIONE METEO: Fetch con POST e parsing corretto della risposta
         async function getWeather(latitude, longitude, locationName = 'Posizione attuale') {
             const weatherWidget = document.getElementById('weather-widget');
             weatherWidget.innerHTML = `<div class="text-gray-400">Caricamento meteo per ${locationName}...</div>`;
             try {
-                // Sostituire con la chiamata alla Netlify Function
-                const response = await fetch(`/.netlify/functions/getWeather?lat=${latitude}&lon=${longitude}`);
-                if (!response.ok) throw new Error('Risposta network non OK');
+                const response = await fetch('/.netlify/functions/getWeather', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ latitude: latitude, longitude: longitude })
+                });
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(`Errore server (Meteo): ${errorBody.message || 'Sconosciuto'}`);
+                }
                 const data = await response.json();
                 
                 weatherWidget.innerHTML = `
@@ -839,30 +817,39 @@
                     <div class="flex items-center gap-4 mb-4">
                         <img src="${getWeatherIcon(data.current.weathercode)}" alt="weather icon" class="w-16 h-16 -my-2">
                         <div>
-                            <div class="text-3xl font-bold text-white">${Math.round(data.current.temperature_2m)}°C</div>
-                            <div class="text-gray-300 capitalize">Nuvoloso</div>
+                            <div class="text-3xl font-bold text-white">${Math.round(data.current.temperature)}°C</div>
+                            <div class="text-gray-300 capitalize">${data.current.description}</div>
                         </div>
                         <div class="text-sm text-gray-400">
-                            <div>Umidità: ${data.current.relative_humidity_2m}%</div>
-                            <div>Vento: ${data.current.wind_speed_10m} km/h</div>
+                            <div>Umidità: ${data.current.relativehumidity_2m}%</div>
+                            <div>Vento: ${data.current.windspeed_10m} km/h</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div><p class="font-medium text-white">Mattino</p><img src="${getWeatherIcon(data.daily.weather_code[0])}" alt="morning" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.daily.temperature_2m_max[0])}°C</p></div>
-                        <div><p class="font-medium text-white">Pomeriggio</p><img src="${getWeatherIcon(data.daily.weather_code[0])}" alt="afternoon" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.daily.temperature_2m_max[0])}°C</p></div>
-                        <div><p class="font-medium text-white">Sera</p><img src="${getWeatherIcon(data.daily.weather_code[0])}" alt="evening" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.daily.temperature_2m_min[0])}°C</p></div>
+                        <div><p class="font-medium text-white">Mattino</p><img src="${getWeatherIcon(data.morning.weathercode)}" alt="morning" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.morning.temperature_2m_max)}°C</p></div>
+                        <div><p class="font-medium text-white">Pomeriggio</p><img src="${getWeatherIcon(data.afternoon.weathercode)}" alt="afternoon" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.afternoon.temperature_2m_max)}°C</p></div>
+                        <div><p class="font-medium text-white">Sera</p><img src="${getWeatherIcon(data.evening.weathercode)}" alt="evening" class="w-10 h-10 mx-auto"><p class="text-gray-300">${Math.round(data.evening.temperature_2m_max)}°C</p></div>
                     </div>`;
             } catch (error) {
                 console.error("Weather error:", error);
-                weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile.</div>`;
+                weatherWidget.innerHTML = `<div class="text-red-400">Meteo non disponibile. ${error.message}</div>`;
             }
         }
 
-        function getGeolocationWeather() {
+        async function getGeolocationWeather() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        getWeather(position.coords.latitude, position.coords.longitude, 'Posizione Attuale');
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        const response = await fetch('/.netlify/functions/getWeather', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ latitude: lat, longitude: lon, reverseGeocode: true })
+                        });
+                        const data = await response.json();
+                        const locationName = data.locationName || 'La tua posizione';
+                        getWeather(lat, lon, locationName);
                     },
                     (error) => {
                         console.error("Geolocation error:", error);
@@ -1564,7 +1551,7 @@
         
         /* PUNTO 5: Stile "cartaceo" per il diario */
         #chat-messages.paper-style {
-            background-color: #e6e0b9; /* Colore carta */
+            background-color: #efd8a9; /* Colore carta */
             color: #3a3a3a;
             border: 1px solid #e0d9c6;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -1640,7 +1627,17 @@
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="weather-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="cloud-sun" class="w-5 h-5 text-red-400"></i>Meteo</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="weather-content" class="collapsible-content pt-4"><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md flex items-center justify-center gap-2 text-sm"><i data-lucide="map-pin" class="w-4 h-4"></i><span class="hidden sm:inline">Posizione Attuale</span></button></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="accommodation-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="accommodation-content" class="collapsible-content pt-4"><div id="accommodation-widget"></div></div></div>
-                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up"><div class="collapsible-header" data-target="travel-events-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti & Eventi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="travel-events-content" class="collapsible-content pt-4"><div id="travel-events-widget" class="space-y-4"></div></div></div>
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
+                            <div class="collapsible-header" data-target="travel-events-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti & Eventi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
+                            <div id="travel-events-content" class="collapsible-content pt-4">
+                                <div id="travel-events-list" class="space-y-4 max-h-96 overflow-y-auto pr-2 mb-4"></div>
+                                <div id="travel-event-form-container"></div>
+                                <div id="travel-event-actions" class="flex gap-2 mt-4">
+                                    <button class="add-travel-btn flex-1 bg-red-600 hover:bg-red-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Aggiungi Spostamento</button>
+                                    <button class="add-event-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Aggiungi Evento</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="todays-booked-places-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Prenotati di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="todays-booked-places-content" class="collapsible-content pt-4"><ul id="todays-booked-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2"></ul></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="todays-unbooked-pinned-places-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="map-pin" class="w-5 h-5 text-orange-400"></i>Pinnati di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="todays-unbooked-pinned-places-content" class="collapsible-content pt-4"><ul id="todays-unbooked-pinned-places-list" class="space-y-2 max-h-48 overflow-y-auto pr-2"></ul></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="todays-backpack-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Zaino di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="todays-backpack-content" class="collapsible-content pt-4"><div id="todays-backpack-widget" class="space-y-2"></div></div></div>
