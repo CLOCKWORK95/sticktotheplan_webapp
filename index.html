@@ -375,8 +375,8 @@
         };
 
         function renderHomeView() {
-            const itineraryTableBody = document.getElementById('itinerary-table-body');
-            itineraryTableBody.innerHTML = '';
+            const itineraryListContainer = document.getElementById('itinerary-list-container');
+            itineraryListContainer.innerHTML = '';
             const homeImageEl = document.getElementById('home-title-image');
             if (homeImageEl) {
                 homeImageEl.src = locationImages["default"];
@@ -388,9 +388,9 @@
             let firstDayDate = tripData.length > 0 ? new Date(tripData[0].date) : null;
             if (firstDayDate) firstDayDate.setHours(0, 0, 0, 0);
             tripData.forEach(day => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200';
-                row.dataset.date = day.date;
+                const dayCard = document.createElement('div');
+                dayCard.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200 flex items-center gap-4';
+                dayCard.dataset.date = day.date;
                 const dayDate = new Date(day.date);
                 dayDate.setHours(0, 0, 0, 0);
                 let isPast = dayDate < today;
@@ -402,20 +402,34 @@
                     isHighlighted = true;
                     firstDayBeforeTripFound = true;
                 }
-                if (isHighlighted) { row.classList.add('bg-green-700/30', 'border-green-500'); }
-                else if (isPast) { row.classList.add('text-gray-500'); }
-                else { row.classList.add('text-gray-200'); }
-                row.innerHTML = `
-                    <td class="p-4">${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: '2-digit' })}</td>
-                    <td class="p-4">${day.location}</td>
-                    <td class="p-4">${day.accommodation.name}</td>
-                    <td class="p-4 text-right"><i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-red-400')}"></i></td>
+                if (isHighlighted) { dayCard.classList.add('bg-green-700/30', 'border-green-500'); }
+                else if (isPast) { dayCard.classList.add('text-gray-500'); }
+                else { dayCard.classList.add('text-gray-200'); }
+
+                dayCard.innerHTML = `
+                    <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2">
+                        <div>
+                            <span class="sm:hidden font-bold text-xs text-gray-400">Data</span>
+                            <p>${dayDate.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: '2-digit' })}</p>
+                        </div>
+                        <div>
+                            <span class="sm:hidden font-bold text-xs text-gray-400">Luogo</span>
+                            <p>${day.location}</p>
+                        </div>
+                        <div>
+                            <span class="sm:hidden font-bold text-xs text-gray-400">Alloggio</span>
+                            <p class="truncate">${day.accommodation.name}</p>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-red-400')}"></i>
+                    </div>
                 `;
-                row.addEventListener('click', () => {
+                dayCard.addEventListener('click', () => {
                     renderDayDetailView(day.date);
                     navigateTo('day-detail');
                 });
-                itineraryTableBody.appendChild(row);
+                itineraryListContainer.appendChild(dayCard);
             });
             lucide.createIcons();
         }
@@ -1652,7 +1666,11 @@
             border: 1px solid #e0d9c6;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             font-family: 'Lora', serif;
-            height: 400px; overflow-y: auto; display: flex; flex-direction: column; padding: 1rem; border-radius: 0.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            border-radius: 0.5rem;
         }
         .chat-bubble {
             padding: 0.75rem;
@@ -1678,7 +1696,16 @@
             height: 20px;
             width: 20px;
         }
-        
+        .items-start .chat-bubble::after {
+            left: -10px;
+            background-color: inherit;
+            clip-path: polygon(100% 100%, 0 0, 100% 0);
+        }
+        .items-end .chat-bubble::after {
+            right: -10px;
+            background-color: inherit;
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
     </style>
 </head>
 <body class="text-gray-300">
@@ -1720,8 +1747,13 @@
             <header class="p-4 sm:p-6 text-center"><h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1><p class="text-gray-400">Giappone 2025</p></header>
             <main class="p-4 sm:p-6">
                 <img id="home-title-image" src="" alt="Paesaggio Giapponese" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
-                <div class="bg-gray-800 rounded-lg shadow-lg overflow-x-auto border border-gray-700">
-                    <table class="w-full text-left min-w-[600px]"><thead class="bg-gray-700/50"><tr><th class="p-4 font-semibold text-white">Data</th><th class="p-4 font-semibold text-white">Luogo</th><th class="p-4 font-semibold text-white">Alloggio</th><th class="p-4"></th></tr></thead><tbody id="itinerary-table-body"></tbody></table>
+                <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4">
+                    <div class="hidden sm:grid grid-cols-3 gap-4 font-bold text-white mb-2 px-4">
+                        <div>Data</div>
+                        <div>Luogo</div>
+                        <div>Alloggio</div>
+                    </div>
+                    <div id="itinerary-list-container" class="space-y-2"></div>
                 </div>
                 <div class="mt-6 bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="file-json" class="w-5 h-5 text-red-400"></i>Importa Itinerario</h3><p class="text-gray-400 text-sm mb-4">Aggiorna l'itinerario caricando un file JSON.</p><button id="import-json-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Seleziona File</button><input type="file" id="import-json-input" accept=".json" class="hidden"></div>
             </main>
