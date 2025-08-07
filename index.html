@@ -1536,7 +1536,7 @@
 
             output.value = "Traduzione...";
             const isJapanese = /[一-龠ぁ-ゔァ-ヴー]/.test(originalText);
-            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${originalText}"`;
+            const prompt = `Traduci in ${isJapanese ? "Italiano" : "Giapponese"}: "${originalText}, e rispondi esclusivamente con la traduzione, senza aggiungere altro testo."`;
             try {
                 const response = await fetch('/.netlify/functions/translate', { method: 'POST', body: JSON.stringify({ prompt }) });
                 const result = await response.json();
