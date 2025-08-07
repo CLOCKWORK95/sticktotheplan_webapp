@@ -4,14 +4,20 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "details": "Check-in Today 15.00, Check-out 26/08 10.00",
-      "price": "35073 JPY",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+      "phone": "+81358271811",
+      "details": "3 Notti, Check-in 23/08 15:00 -> Check-out 26/08 10:00",
+      "price": "¥35073",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo",
+      "reservationLink": "https://drive.google.com/file/d/1ab7xOc_ULjWTHy18x6_ZE8nwUZ5p30X8/view?usp=drive_link",
+      "numero_conferma": "4430606289",
+      "pin": "5491"
     },
     "travel": [
       {
         "type": "Treno",
         "description": "Skyliner Limited Express : Narita Airport Terminal 2·3 -> Keisei-Ueno",
+        "tickets_link":"",
+        "tickets_receipt": "",
         "price": "28€",
         "start" : "12:02",
         "end" : "12:43"
@@ -19,6 +25,8 @@
       {
         "type": "Metro",
         "description": "Ueno -> Asakusa Station",
+        "tickets_link":"",
+        "tickets_receipt": "",
         "price": "circa 15€",
         "start" : "12:48",
         "end" : "12:54"
@@ -74,7 +82,13 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+      "phone": "+81358271811",
+      "details": "3 Notti, Check-in 23/08 15:00 -> Check-out 26/08 10:00",
+      "price": "¥35073",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo",
+      "reservationLink": "https://drive.google.com/file/d/1ab7xOc_ULjWTHy18x6_ZE8nwUZ5p30X8/view?usp=drive_link",
+      "numero_conferma": "4430606289",
+      "pin": "5491"
     },
     "travel": [],
     "events": []
@@ -84,7 +98,13 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+      "phone": "+81358271811",
+      "details": "3 Notti, Check-in 23/08 15:00 -> Check-out 26/08 10:00",
+      "price": "¥35073",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo",
+      "reservationLink": "https://drive.google.com/file/d/1ab7xOc_ULjWTHy18x6_ZE8nwUZ5p30X8/view?usp=drive_link",
+      "numero_conferma": "4430606289",
+      "pin": "5491"
     },
     "travel": [],
     "events": [
@@ -98,7 +118,7 @@
       {
         "name": "Museo Nazionale di Tokyo",
         "details": "Visita al Museo Nazionale di Tokyo",
-        "price": "2000 JPY",
+        "price": "¥2000",
         "start" : "9.30",
         "end" : "11.30"
       },
@@ -112,7 +132,7 @@
       {
         "name": "Tokyo Tower",
         "details": "Visita alla Tokyo Tower - TOPDECK Tour",
-        "price": "6000 JPY",
+        "price": "¥6000",
         "start" : "15.15",
         "end" : "17.00"
       }
@@ -123,17 +143,32 @@
     "location": "Ryokan (Takaragawa Onsen)",
     "accommodation": {
       "name": "Takaragawa Onsen Ousenkaku",
-      "details": "220€ (30.600 YEN)",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Takaragawa+Onsen+Ousenkaku"
+      "phone": "+81278752611",
+      "details": "1 Notte con Accesso Terme + Cena + Colazione, Check-in 26/08 14:00-19:00 -> Check-out 27/08 8:00-10:00",
+      "price": "¥36300",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Takaragawa+Onsen+Ousenkaku",
+      "reservationLink": "https://drive.google.com/file/d/1P3-NBu9WpTCVgPVCcnfqgAwEjNRDATd-/view",
+      "numero_conferma": "4952282958",
+      "pin": "9317"
     },
     "travel": [
       {
         "type": "Treno",
-        "description": "TOKYO -> JOMO-KOGEN (€37 a persona, ~1h)"
+        "description": "TOKYO -> JOMO-KOGEN (€37 a persona, ~1h)",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       },
       {
         "type": "Navetta",
-        "description": "Jomo-kogen -> Hotel (45min, da concordare)"
+        "description": "Jomo-kogen -> Hotel (45min, da concordare)",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -143,17 +178,32 @@
     "location": "Kanazawa",
     "accommodation": {
       "name": "Tokyu Stay Kanazawa",
-      "details": "109€ (17.820 YEN)",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa"
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa",
+      "phone": "+81762238109",
+      "details": "2 Notti, Check-in 27/08 15:00-00.00 -> Check-out 29/08 11:00",
+      "price": "¥17820",
+      "reservationLink": "https://drive.google.com/file/d/1UenNliBE-CE6WFDIhMxMHkbTSodEz3IZ/view?usp=drive_link",
+      "numero_conferma": "4991097792",
+      "pin": "5537"
     },
     "travel": [
       {
         "type": "Treno",
-        "description": "JOMO-KOGEN -> TOKYO (€37 a persona, ~1h)"
+        "description": "Shinkansen: Jomo-Kogen -> Tokyo (€37 a persona, ~1h)",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       },
       {
         "type": "Shinkansen",
-        "description": "TOKYO -> KANAZAWA (€97 a persona, 2h30-3h)"
+        "description": "TOKYO -> KANAZAWA (€97 a persona, 2h30-3h)",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -163,7 +213,13 @@
     "location": "Kanazawa",
     "accommodation": {
       "name": "Tokyu Stay Kanazawa",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa"
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Tokyu+Stay+Kanazawa",
+      "phone": "+81762238109",
+      "details": "2 Notti, Check-in 27/08 15:00-00.00 -> Check-out 29/08 11:00",
+      "price": "¥17820",
+      "reservationLink": "https://drive.google.com/file/d/1UenNliBE-CE6WFDIhMxMHkbTSodEz3IZ/view?usp=drive_link",
+      "numero_conferma": "4991097792",
+      "pin": "5537"
     },
     "travel": [],
     "events": []
@@ -172,15 +228,25 @@
     "date": "2025-08-29",
     "location": "Shirakawa-go",
     "accommodation": {
-      "name": "Minshuku Goyomon (Ainokura)",
-      "details": "171€ (28.000 YEN) SOLO CASH",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Minshuku+Goyomon,Shirakawa"
+      "name": "Minshuku Goyomon - Ainokura(Gokayama)",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Minshuku+Goyomon,Shirakawa",
+      "phone": "+81763662154",
+      "details": "1 Notte con Cena + Colazione, Check-in 29/08 dalle 15:00 -> Check-out 30/08 10:00",
+      "price": "¥28000 (CASH ONLY)",
+      "reservationLink": "https://drive.google.com/file/d/1JiWsJZCG_7b6YEheW05RBhTJNG2DiPyP/view?usp=drive_link",
+      "numero_conferma": "4560341774",
+      "pin": "4993"
     },
     "travel": [
       {
         "type": "Autobus",
         "description": "KANAZAWA -> SHIRAKAWA-GO (1h25, 32,78€) Partenza 09:40. Prenotazione: 08032040671. STAMPARE E-MAIL!",
-        "link": "https://www.tabi-nanto.jp/en/nantokanazawasen/time.php"
+        "site_link": "https://www.tabi-nanto.jp/en/nantokanazawasen/time.php",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -190,21 +256,44 @@
     "location": "Kyoto",
     "accommodation": {
       "name": "Wander Kyoto Nanajo",
-      "details": "238€ (38.946 YEN)",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo",
+      "phone": "+81753309330",
+      "details": "3 Notti, Check-in 30/08 15:00-00:00 -> Check-out 02/09 11:00",
+      "price": "¥38946",
+      "reservationLink": "https://drive.google.com/file/d/1iHeQyB8O5AyZqV6b8kvI-SfUtpZRongu/view?usp=drive_link",
+      "numero_conferma": "4733028374",
+      "pin": "0227"
     },
     "travel": [
       {
         "type": "Autobus",
-        "description": "Ainokura -> Shirakawa-go (09:28-10:20)"
+        "description": "Ainokura -> Shirakawa-go (09:28-10:20)",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       },
       {
         "type": "Autobus",
-        "description": "Shirakawa-go -> Kanazawa (10:55-12:20, 32,78€). Prenotazione: 08032042981. STAMPARE E-MAIL!"
+        "description": "Shirakawa-go -> Kanazawa (10:55-12:20, 32,78€). Prenotazione: 08032042981. STAMPARE E-MAIL!",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       },
       {
         "type": "Treno",
-        "description": "Kanazawa -> Kyoto (13:05-15:09, ~104€). COMPRARE BIGLIETTI"
+        "description": "Kanazawa -> Kyoto (13:05-15:09, ~104€). COMPRARE BIGLIETTI",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -214,7 +303,13 @@
     "location": "Kyoto",
     "accommodation": {
       "name": "Wander Kyoto Nanajo",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo",
+      "phone": "+81753309330",
+      "details": "3 Notti, Check-in 30/08 15:00-00:00 -> Check-out 02/09 11:00",
+      "price": "¥38946",
+      "reservationLink": "https://drive.google.com/file/d/1iHeQyB8O5AyZqV6b8kvI-SfUtpZRongu/view?usp=drive_link",
+      "numero_conferma": "4733028374",
+      "pin": "0227"
     },
     "travel": [],
     "events": []
@@ -224,7 +319,13 @@
     "location": "Kyoto",
     "accommodation": {
       "name": "Wander Kyoto Nanajo",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo"
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=Wander+Kyoto+Nanajo",
+      "phone": "+81753309330",
+      "details": "3 Notti, Check-in 30/08 15:00-00:00 -> Check-out 02/09 11:00",
+      "price": "¥38946",
+      "reservationLink": "https://drive.google.com/file/d/1iHeQyB8O5AyZqV6b8kvI-SfUtpZRongu/view?usp=drive_link",
+      "numero_conferma": "4733028374",
+      "pin": "0227"
     },
     "travel": [],
     "events": []
@@ -233,14 +334,25 @@
     "date": "2025-09-02",
     "location": "Osaka",
     "accommodation": {
-      "name": "MEANDER Osaka",
-      "details": "205,53€ (33.516 YEN)",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka"
+      "name": "Meander Osaka",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka",
+      "phone": "+81665639491",
+      "details": "2 Notti, Check-in 02/09 dalle 15:00 -> Check-out 04/09 11:00",
+      "price": "¥33516",
+      "reservationLink": "https://drive.google.com/file/d/13L9EnBGhlY1IqB0D-GvspAHhGIozWUIB/view?usp=drive_link",
+      "numero_conferma": "5639239205",
+      "pin": "2044"
     },
     "travel": [
       {
         "type": "Treno",
-        "description": "KYOTO -> OSAKA (€9 a persona, 30min)"
+        "description": "KYOTO -> OSAKA (€9 a persona, 30min)",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -249,13 +361,25 @@
     "date": "2025-09-03",
     "location": "Nara",
     "accommodation": {
-      "name": "MEANDER Osaka",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka"
+      "name": "Meander Osaka",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=MEANDER+Osaka",
+      "phone": "+81665639491",
+      "details": "2 Notti, Check-in 02/09 dalle 15:00 -> Check-out 04/09 11:00",
+      "price": "¥33516",
+      "reservationLink": "https://drive.google.com/file/d/13L9EnBGhlY1IqB0D-GvspAHhGIozWUIB/view?usp=drive_link",
+      "numero_conferma": "5639239205",
+      "pin": "2044"
     },
     "travel": [
       {
         "type": "Treno",
-        "description": "OSAKA <-> NARA"
+        "description": "OSAKA <-> NARA",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -265,13 +389,24 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "details": "197€ (32.328 YEN)",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+      "phone": "+81358271811",
+      "details": "2 Notti, Check-in 04/09 15:00-00:00 -> Check-out 06/09 10:00",
+      "price": "¥32238",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo",
+      "reservationLink": "https://drive.google.com/file/d/1uNfnOmHXTc9T676Vq16xqgrZbydbvKPV/view?usp=drive_link",
+      "numero_conferma": "4991077687",
+      "pin": "1790"
     },
     "travel": [
       {
         "type": "Treno",
-        "description": "OSAKA -> TOKYO"
+        "description": "OSAKA -> TOKYO",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
@@ -281,7 +416,13 @@
     "location": "Tokyo",
     "accommodation": {
       "name": "APA Hotel Asakusa Kuramae Kita",
-      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo"
+      "phone": "+81358271811",
+      "details": "2 Notti, Check-in 04/09 15:00-00:00 -> Check-out 06/09 10:00",
+      "price": "¥32238",
+      "mapLink": "https://www.google.com/maps/search/?api=1&query=APA+Hotel+Asakusa+Kuramae+Kita,Tokyo",
+      "reservationLink": "https://drive.google.com/file/d/1uNfnOmHXTc9T676Vq16xqgrZbydbvKPV/view?usp=drive_link",
+      "numero_conferma": "4991077687",
+      "pin": "1790"
     },
     "travel": [],
     "events": []
@@ -290,12 +431,18 @@
     "date": "2025-09-06",
     "location": "Tokyo",
     "accommodation": {
-      "name": "-"
+      "name": "Roma"
     },
     "travel": [
       {
         "type": "Aereo",
-        "description": "TOKYO -> ROMA"
+        "description": "TOKYO -> ROMA",
+        "site_link": "",
+        "tickets_link":"",
+        "tickets_receipt": "",
+        "price": "",
+        "start" : "",
+        "end" : ""
       }
     ],
     "events": []
