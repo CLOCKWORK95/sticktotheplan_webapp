@@ -749,48 +749,6 @@
             }
         }
 
-        // Moved to chat view
-        /*
-        function loadAndDisplayNotes(dateString) {
-            const notesListEl = document.getElementById('notes-list');
-            notesListEl.innerHTML = '<li>Caricamento...</li>';
-            const notesQuery = query(collection(db, "trip-notes"), where("date", "==", dateString));
-            currentDayUnsubscribeNotes = onSnapshot(notesQuery, (snapshot) => {
-                notesListEl.innerHTML = '';
-                let notes = [];
-                snapshot.forEach(doc => notes.push(doc.data()));
-                notes.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
-                if (notes.length === 0) {
-                    notesListEl.innerHTML = '<li class="text-gray-400">Nessun appunto.</li>';
-                } else {
-                    notes.forEach(note => {
-                        const li = document.createElement('li');
-                        // Applica classi diverse in base alla sorgente della nota
-                        const noteClass = note.source === 'translation' ? 'bg-blue-400/10 text-blue-200' : 'bg-red-400/10 text-red-200';
-                        li.className = `${noteClass} p-3 rounded-lg text-sm`;
-                        li.textContent = note.text;
-                        notesListEl.appendChild(li);
-                    });
-                }
-            });
-        }
-        */
-
-        // Moved to chat view
-        /*
-        async function saveNote(dateString, textToSave = null, source = 'manual') { // Aggiungi parametro 'source'
-            const input = document.getElementById('note-input');
-            const text = textToSave || input.value.trim(); // Usa textToSave se fornito, altrimenti il valore dell'input
-
-            if (text) {
-                await addDoc(collection(db, "trip-notes"), { date: dateString, text: text, source: source, createdAt: new Date() }); // Salva anche la sorgente
-                if (!textToSave) { // Pulisci l'input solo se il testo proviene dalla textarea degli appunti
-                    input.value = '';
-                }
-            }
-        }
-        */
-
         function loadAndDisplayExpenses(dateString) {
             const expensesListEl = document.getElementById('expenses-list');
             const totalExpensesEl = document.getElementById('total-expenses');
@@ -827,98 +785,6 @@
             }
         }
         
-        // Moved to chat view
-        /*
-        async function translate() {
-            const inputEl = document.getElementById('translate-input-it');
-            const outputEl = document.getElementById('translate-output-jp');
-            const textToTranslate = inputEl.value.trim();
-            if (!textToTranslate) return;
-
-            outputEl.value = "Traduzione in corso...";
-            
-            // Determina la lingua di destinazione in base alla presenza di caratteri giapponesi nell'input
-            const isJapanese = /[一-龠]+|[ぁ-ゔ]+|[ァ-ヴー]+/.test(textToTranslate);
-            const targetLanguage = isJapanese ? "Italiano" : "Giapponese";
-            const prompt = `Traduci questo in ${targetLanguage}: "${textToTranslate}" Rispondi esclusivamente con la traduzione, senza aggiungere altro.`; 
-
-            try {
-                // Chiamata alla Netlify Function invece che direttamente all'API Gemini
-                const response = await fetch('/.netlify/functions/translate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt, model: GEMINI_MODEL_NAME }) // Passa il modello alla funzione
-                });
-                
-                // Gestione degli errori dalla risposta della Netlify Function
-                if (!response.ok) {
-                    // Tenta di leggere il corpo della risposta come testo per un debug più facile
-                    const errorText = await response.text();
-                    console.error("Netlify Function Error Raw Response (Weather):", errorText);
-                    let errorMessage = `Errore dalla funzione server: ${response.status} ${response.statusText}`;
-                    try {
-                        const errorBody = JSON.parse(errorText);
-                        errorMessage = `Errore dalla funzione server: ${errorBody.message || 'Errore sconosciuto'}`;
-                    } catch (e) {
-                        // Se non è JSON, usa il testo grezzo
-                        errorMessage = `Errore dalla funzione server: ${errorText}`;
-                    }
-                    throw new Error(errorMessage);
-                }
-
-                // Parsifica la risposta JSON
-                const result = await response.json();
-                if (result.translation) {
-                    outputEl.value = result.translation;
-                    
-                    // Salva automaticamente originale e traduzione negli appunti
-                    if (currentActiveDate) {
-                        await saveNote(currentActiveDate, `Originale: ${textToTranslate}`, 'translation');
-                        await saveNote(currentActiveDate, `Traduzione: ${result.translation}`, 'translation');
-                    }
-
-                } else {
-                    throw new Error("Nessuna traduzione valida ricevuta dalla funzione server.");
-                }
-
-            } catch (error) {
-                console.error("Translation error:", error);
-                outputEl.value = `Errore di traduzione: ${error.message}. Controlla i log della Netlify Function.`;
-            }
-        }
-        */
-
-        // Moved to chat view
-        /*
-        // Funzione per attivare/disattivare la tastiera giapponese/italiana
-        function toggleKeyboardLanguage() {
-            // Controlla la lingua corrente dell'input
-            const currentLang = translateInputIt.lang;
-
-            if (currentLang === 'it' || !currentLang) { // Se è italiano o non è impostato, passa a giapponese
-                translateInputIt.lang = 'ja';
-                translateInputIt.placeholder = 'Scrivi qui in Giapponese...';
-                // Potresti voler aggiungere un inputmode specifico per giapponese, ma 'text' con lang='ja' è spesso sufficiente
-                // translateInputIt.inputmode = 'kana'; // o 'katakana' per tastiere kana/katakana
-                document.getElementById('toggle-keyboard-btn').innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Giapponese</span>';
-            } else { // Se è giapponese, torna a italiano
-                translateInputIt.lang = 'it';
-                translateInputIt.placeholder = 'Scrivi qui in Italiano...';
-                // translateInputIt.inputmode = 'text';
-                document.getElementById('toggle-keyboard-btn').innerHTML = '<i data-lucide="keyboard" class="w-4 h-4"></i><span class="hidden sm:inline">Tastiera: Italiano</span>';
-            }
-            lucide.createIcons(); // Aggiorna l'icona
-        }
-        */
-
-        // Moved to chat view
-        /*
-        // Nuova funzione per pulire i campi di testo della traduzione
-        function clearTranslationBoxes() {
-            document.getElementById('translate-input-it').value = '';
-            document.getElementById('translate-output-jp').value = '';
-        }
-        */
 
         // Funzioni per la sezione Zaino
         async function loadAndDisplayBackpackItems() {
@@ -1287,7 +1153,7 @@
                 relevantItems.forEach(item => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'flex items-start gap-3 bg-gray-700/30 p-3 rounded-lg text-sm mb-2';
-                    let content = `<div class="font-medium text-white">${item.name} (${item.quantity})</div>`;
+                    let content = `<div class="font-medium text-white">${item.name}</div>`;
                     if (item.type) content += `<div class="text-red-300 text-xs">${item.type}</div>`;
                     // Aggiungi l'indicazione dello zaino (Pino/Pina)
                     content += `<div class="text-gray-500 text-xs mt-1">Zaino: ${item.user === 'pino' ? 'Pino' : 'Pina'}</div>`;
@@ -2731,7 +2597,7 @@
                                 <div id="weather-widget"></div>
                                 <button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm">
                                     <i data-lucide="map-pin" class="w-4 h-4"></i>
-                                    <span class="hidden sm:inline">Meteo attuale</span>
+                                    <span class="hidden sm:inline">Posizione Attuale</span>
                                 </button>
                             </div>
                         </div>
