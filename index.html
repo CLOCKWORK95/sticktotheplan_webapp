@@ -15,7 +15,7 @@
         // Importa le funzioni necessarie dai moduli Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         // Importazioni corrette per Firestore
-        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, where, getDocs, writeBatch, deleteDoc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         // Importazioni corrette per Auth
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
@@ -31,8 +31,6 @@
             appId: "1:733326492471:web:09c93b1a6e5d4543b550b2",
             measurementId: "G-D9LKF6YET3"
         };
-        // Le API Key di OpenWeatherMap e Gemini verranno gestite tramite Netlify Functions
-        const GEMINI_MODEL_NAME = 'gemini-1.5-flash';
         // =================================================================================
 
         const app = initializeApp(firebaseConfig);
@@ -43,10 +41,10 @@
         let tripData = [];
         let currentDayUnsubscribeNotes = null;
         let currentDayUnsubscribeExpenses = null;
-        let currentDayUnsubscribePlannerItems = null; // NUOVO LISTENER UNIFICATO
+        let currentDayUnsubscribePlannerItems = null; 
         let itineraryUnsubscribe = null;
         let backpackUnsubscribe = null;
-        let plannerItemsUnsubscribe = null; // NUOVO LISTENER PER MAPPA
+        let plannerItemsUnsubscribe = null; 
         let chatUnsubscribe = null;
         let clockInterval = null;
         let italianClockInterval = null;
@@ -54,10 +52,12 @@
         let currentBackpackUser = 'pino';
         let currentBackpackFilter = 'Tutti';
         let map;
+        let modalMap; // Mappa per il modale
+        let modalMarker;
         let currentMapCity = 'Tokyo';
         let mapMarkers = [];
         let googleMapsApiLoaded = false;
-        let editingItemId = null; // Per sapere se stiamo creando o modificando un item
+        let editingItemId = null; 
 
         let currentPlannerItemTagFilter = 'Tutti';
         let currentPlannerItemBookedFilter = 'Tutti';
@@ -74,6 +74,7 @@
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const itemModal = document.getElementById('item-modal');
+        const unassignedItemsModal = document.getElementById('unassigned-items-modal');
 
 
         // Gestione autenticazione
@@ -114,8 +115,6 @@
         });
 
         function setupAppEventListeners() {
-            console.log("Setting up application event listeners...");
-
             // Navigation
             document.getElementById('nav-itinerary-btn').addEventListener('click', () => navigateTo('home'));
             document.getElementById('nav-backpack-btn').addEventListener('click', () => { navigateTo('backpack'); loadAndDisplayBackpackItems(); });
@@ -158,7 +157,7 @@
             document.getElementById('map-city-select').addEventListener('change', changeMapCity);
             document.getElementById('open-item-modal-map-btn').addEventListener('click', () => openItemModal({ city: currentMapCity }));
 
-            // Planner items filters (ex Pinned Places)
+            // Planner items filters
             document.getElementById('filter-tag-tutti-btn').addEventListener('click', () => filterPlannerItemsByTag('Tutti'));
             document.getElementById('filter-tag-attrazione-btn').addEventListener('click', () => filterPlannerItemsByTag('Attrazione'));
             document.getElementById('filter-tag-ristorante-btn').addEventListener('click', () => filterPlannerItemsByTag('Ristorante'));
@@ -216,55 +215,63 @@
                 });
             }
             
-            // Event delegation for dynamic content
-            document.getElementById('planner-items-list').addEventListener('click', (e) => {
-                if (e.target.closest('.delete-planner-item-btn')) {
-                    deletePlannerItem(e.target.closest('.delete-planner-item-btn').dataset.id);
-                }
-                if (e.target.closest('.edit-planner-item-btn')) {
-                    openItemModal({ id: e.target.closest('.edit-planner-item-btn').dataset.id });
-                }
-            });
-
-            // DELEGAZIONE EVENTI per Day Detail View
-            const dayDetailMain = document.getElementById('day-detail-main');
-            dayDetailMain.addEventListener('click', async (e) => {
+            // =================================================================
+            // GESTIONE DEGLI EVENTI GLOBALE (EVENT DELEGATION)
+            // =================================================================
+            appContainer.addEventListener('click', async (e) => {
                 const dayData = tripData.find(d => d.date === currentActiveDate);
-                if (!dayData) return;
 
-                // Alloggio
-                if (e.target.closest('.edit-accommodation-btn')) editAccommodation(dayData);
-                if (e.target.closest('.save-accommodation-btn')) await saveEditedAccommodation(dayData.date);
-                if (e.target.closest('.cancel-accommodation-btn')) renderDayDetailView(dayData.date);
+                // Planner Items (Modifica / Elimina)
+                const editPlannerBtn = e.target.closest('.edit-planner-item-btn');
+                if (editPlannerBtn) {
+                    openItemModal({ id: editPlannerBtn.dataset.id });
+                    return;
+                }
+                const deletePlannerBtn = e.target.closest('.delete-planner-item-btn');
+                if (deletePlannerBtn) {
+                    deletePlannerItem(deletePlannerBtn.dataset.id);
+                    return;
+                }
 
-                // Spostamenti
-                if (e.target.closest('.add-travel-btn')) addTravelItem(dayData);
-                if (e.target.closest('.edit-travel-btn')) editTravelItem(dayData, e.target.closest('.edit-travel-btn').dataset.index);
-                if (e.target.closest('.save-travel-btn')) await saveEditedTravelItem(dayData.date, e.target.closest('.save-travel-btn').dataset.index);
-                if (e.target.closest('.cancel-travel-btn')) renderDayDetailView(dayData.date);
-                if (e.target.closest('.delete-travel-btn')) {
-                    if (await showCustomConfirm("Sei sicuro di voler eliminare questo spostamento?")) {
-                        await deleteTravelItem(dayData.date, e.target.closest('.delete-travel-btn').dataset.index);
+                // Day Detail View
+                if (dayDetailView.contains(e.target) && dayData) {
+                    // Alloggio
+                    if (e.target.closest('.edit-accommodation-btn')) editAccommodation(dayData);
+                    if (e.target.closest('.save-accommodation-btn')) await saveEditedAccommodation(dayData.date);
+                    if (e.target.closest('.cancel-accommodation-btn')) renderDayDetailView(dayData.date);
+
+                    // Spostamenti
+                    if (e.target.closest('.add-travel-btn')) addTravelItem(dayData);
+                    if (e.target.closest('.edit-travel-btn')) editTravelItem(dayData, e.target.closest('.edit-travel-btn').dataset.index);
+                    if (e.target.closest('.save-travel-btn')) await saveEditedTravelItem(dayData.date, e.target.closest('.save-travel-btn').dataset.index);
+                    if (e.target.closest('.cancel-travel-btn')) renderDayDetailView(dayData.date);
+                    if (e.target.closest('.delete-travel-btn')) {
+                        if (await showCustomConfirm("Sei sicuro di voler eliminare questo spostamento?")) {
+                            await deleteTravelItem(dayData.date, e.target.closest('.delete-travel-btn').dataset.index);
+                        }
+                    }
+
+                    // Planner Items (Aggiungi nuovo / Aggiungi esistente)
+                    if (e.target.closest('.add-planner-item-btn')) {
+                        openItemModal({ city: dayData.location.split('/')[0].trim(), giornoIndicativo: currentActiveDate });
+                    }
+                    if (e.target.closest('.add-existing-item-btn')) {
+                        showUnassignedItems(dayData.location.split('/')[0].trim(), currentActiveDate);
                     }
                 }
-
-                // NUOVO: Pulsante per aggiungere Evento/Luogo
-                if (e.target.closest('.add-planner-item-btn')) {
-                    openItemModal({ city: dayData.location.split('/')[0].trim(), giornoIndicativo: currentActiveDate });
-                }
             });
 
-            // NUOVO: Event listener per il modale
+            // Modali
             document.getElementById('save-item-btn').addEventListener('click', saveItem);
             document.getElementById('close-item-modal-btn').addEventListener('click', closeItemModal);
             document.getElementById('item-modal-search-btn').addEventListener('click', searchPlacesForItemModal);
             document.getElementById('item-bookable').addEventListener('change', toggleBookingFields);
             document.getElementById('item-booked').addEventListener('change', toggleBookingFields);
-
+            document.getElementById('close-unassigned-modal-btn').addEventListener('click', () => unassignedItemsModal.classList.add('hidden'));
 
             // Initial setup calls
             setupCollapsibleBoxesDelegation();
-            switchBackpack('pino'); // Set initial backpack state
+            switchBackpack('pino'); 
             filterBackpackItems('Tutti');
             filterPlannerItemsByTag(currentPlannerItemTagFilter);
             filterPlannerItemsByBookedStatus(currentPlannerItemBookedFilter);
@@ -509,7 +516,7 @@
 
             // Load other dynamic sections
             loadAndDisplayExpenses(dateString);
-            loadAndDisplayPlannerItemsForDay(dateString); // NUOVA FUNZIONE
+            loadAndDisplayPlannerItemsForDay(dateString);
             renderTodaysBackpackItems(cityKey);
             
             // Navigation buttons
@@ -809,7 +816,6 @@
             }
         }
         
-        // NUOVA FUNZIONE UNIFICATA PER LA VISTA GIORNALIERA
         function loadAndDisplayPlannerItemsForDay(dateString) {
             const listEl = document.getElementById('day-planner-items-list');
             listEl.innerHTML = '<li class="text-gray-400">Caricamento...</li>';
@@ -822,7 +828,7 @@
                 let items = [];
                 snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
                 
-                items.sort((a, b) => (a.orarioInizio || '00:00').localeCompare(b.orarioInizio || '00:00'));
+                items.sort((a, b) => (a.orarioInizio || '99:99').localeCompare(b.orarioInizio || '99:99'));
 
                 if (items.length === 0) {
                     listEl.innerHTML = '<li class="text-gray-400">Nessun evento o luogo per oggi.</li>';
@@ -830,7 +836,7 @@
                     items.forEach(item => {
                         const li = document.createElement('li');
                         li.className = 'bg-gray-700/30 p-3 rounded-lg text-sm mb-2';
-                        li.innerHTML = renderPlannerItem(item); // Usa una funzione di rendering condivisa
+                        li.innerHTML = renderPlannerItem(item, true); // Render con controlli
                         listEl.appendChild(li);
                     });
                 }
@@ -1046,8 +1052,22 @@
         }
         
         window.initMap = function() {
+            // Main map
             map = new google.maps.Map(document.getElementById('map'), { center: { lat: 35.6895, lng: 139.6917 }, zoom: 12, mapId: 'DEMO_MAP_ID' });
             loadAndDisplayPlannerItems(currentMapCity);
+
+            // Modal map
+            modalMap = new google.maps.Map(document.getElementById('item-modal-map'), { center: { lat: 35.6895, lng: 139.6917 }, zoom: 15, mapId: 'DEMO_MAP_ID_MODAL' });
+            modalMarker = new google.maps.Marker({ map: modalMap });
+            
+            modalMap.addListener('click', (e) => {
+                const lat = e.latLng.lat();
+                const lng = e.latLng.lng();
+                document.getElementById('item-lat').value = lat.toFixed(6);
+                document.getElementById('item-lng').value = lng.toFixed(6);
+                modalMarker.setPosition(e.latLng);
+                modalMarker.setVisible(true);
+            });
         };
         async function loadGoogleMapsScript() {
             if (googleMapsApiLoaded) return;
@@ -1077,7 +1097,6 @@
             loadAndDisplayPlannerItems(currentMapCity);
         }
         
-        // NUOVA FUNZIONE UNIFICATA PER LA VISTA MAPPA
         function loadAndDisplayPlannerItems(city) {
             const listEl = document.getElementById('planner-items-list');
             listEl.innerHTML = '<li class="text-gray-400">Caricamento...</li>';
@@ -1092,7 +1111,7 @@
             if (currentPlannerItemBookedFilter === 'Prenotati') {
                 q = query(q, where("prenotato", "==", true));
             } else if (currentPlannerItemBookedFilter === 'Non Prenotati') {
-                q = query(q, where("prenotato", "==", false));
+                q = query(q, where("prenotabile", "==", true), where("prenotato", "==", false));
             }
             if (currentPlannerItemDateFilter) {
                 q = query(q, where("giornoIndicativo", "==", currentPlannerItemDateFilter));
@@ -1113,7 +1132,7 @@
                         li.dataset.id = item.id;
                         li.innerHTML = renderPlannerItem(item, true); // Render con controlli edit/delete
                         listEl.appendChild(li);
-                        if(item.coordinates) {
+                        if(item.coordinates && item.coordinates.lat && item.coordinates.lng) {
                             addMapMarker(item.coordinates.lat, item.coordinates.lng, item.nome);
                         }
                     });
@@ -1122,13 +1141,10 @@
             });
         }
 
-        // FUNZIONE DI RENDERING CONDIVISA
         function renderPlannerItem(item, includeControls = false) {
             const tagColors = {
-                'Ristorante': 'bg-orange-500/20 text-orange-300',
-                'Attrazione': 'bg-blue-500/20 text-blue-300',
-                'Trasporto': 'bg-purple-500/20 text-purple-300',
-                'Alloggio': 'bg-teal-500/20 text-teal-300',
+                'Ristorante': 'bg-orange-500/20 text-orange-300', 'Attrazione': 'bg-blue-500/20 text-blue-300',
+                'Trasporto': 'bg-purple-500/20 text-purple-300', 'Alloggio': 'bg-teal-500/20 text-teal-300',
                 'Evento': 'bg-pink-500/20 text-pink-300',
             };
             const tagColor = tagColors[item.tag] || 'bg-gray-500/20 text-gray-300';
@@ -1152,7 +1168,7 @@
             return `
                 <div class="flex justify-between items-start gap-3">
                     <div class="flex-grow">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="font-semibold text-white">${item.nome}</span>
                             <span class="text-xs px-2 py-1 rounded-full ${tagColor}">${item.tag}</span>
                         </div>
@@ -1212,13 +1228,13 @@
         
         async function searchPlacesForItemModal() {
             const query = document.getElementById('item-modal-search-query').value.trim();
-            if (!query) return;
+            if (!query || !modalMap) return;
             const resultsList = document.getElementById('item-modal-search-results');
             resultsList.innerHTML = '<li class="text-gray-400 p-2">Ricerca...</li>';
             try {
                 const response = await fetch('/.netlify/functions/searchPlaces', {
                     method: 'POST',
-                    body: JSON.stringify({ query, latitude: map.getCenter().lat(), longitude: map.getCenter().lng() })
+                    body: JSON.stringify({ query, latitude: modalMap.getCenter().lat(), longitude: modalMap.getCenter().lng() })
                 });
                 const data = await response.json();
                 resultsList.innerHTML = '';
@@ -1236,7 +1252,13 @@
                             document.getElementById('item-lat').value = lat;
                             document.getElementById('item-lng').value = lng;
                             document.getElementById('item-map-link').value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-                            resultsList.innerHTML = ''; // Clear results after selection
+                            
+                            const location = { lat, lng };
+                            modalMap.setCenter(location);
+                            modalMarker.setPosition(location);
+                            modalMarker.setVisible(true);
+
+                            resultsList.innerHTML = ''; 
                         };
                         resultsList.appendChild(li);
                     });
@@ -1247,7 +1269,7 @@
         }
         
         // ========================================================================
-        // NUOVA LOGICA PER IL MODALE UNIFICATO
+        // LOGICA PER IL MODALE UNIFICATO E RIUTILIZZO ITEMS
         // ========================================================================
 
         function closeItemModal() {
@@ -1260,17 +1282,20 @@
             editingItemId = id;
 
             document.getElementById('item-modal-title').textContent = id ? 'Modifica Elemento' : 'Nuovo Elemento';
-            
-            // Reset form
             document.getElementById('item-form').reset();
             document.getElementById('item-modal-search-results').innerHTML = '';
-
-            // Set defaults for new items
             document.getElementById('item-city').value = city || currentMapCity;
             document.getElementById('item-indicative-day').value = giornoIndicativo;
 
+            // Centra la mini-mappa sulla città corrente
+            const cityKey = city || currentMapCity;
+            const coords = cityCoordinates[cityKey] || cityCoordinates.default;
+            if (modalMap) {
+                modalMap.setCenter({ lat: coords.latitude, lng: coords.longitude });
+                modalMarker.setVisible(false);
+            }
+
             if (id) {
-                // Fetch data for editing
                 const itemDoc = await getDoc(doc(db, "planner_items", id));
                 if (itemDoc.exists()) {
                     const data = itemDoc.data();
@@ -1287,12 +1312,22 @@
                     document.getElementById('item-booking-link').value = data.linkPrenotazione || '';
                     document.getElementById('item-external-link').value = data.linkEsterno || '';
                     document.getElementById('item-map-link').value = data.linkMappa || '';
-                    document.getElementById('item-lat').value = data.coordinates ? data.coordinates.lat : '';
-                    document.getElementById('item-lng').value = data.coordinates ? data.coordinates.lng : '';
-                    document.getElementById('item-price').value = data.prezzo ? data.prezzo.valore : '';
-                    document.getElementById('item-price-currency').value = data.prezzo ? data.prezzo.valuta : 'Yen';
-                    document.getElementById('item-price-indicative').checked = data.prezzo ? data.prezzo.indicativo : false;
-                    document.getElementById('item-price-per-person').checked = data.prezzo ? data.prezzo.perPersona : false;
+                    if (data.coordinates && data.coordinates.lat) {
+                        const location = { lat: data.coordinates.lat, lng: data.coordinates.lng };
+                        document.getElementById('item-lat').value = location.lat;
+                        document.getElementById('item-lng').value = location.lng;
+                        if(modalMap) {
+                            modalMap.setCenter(location);
+                            modalMarker.setPosition(location);
+                            modalMarker.setVisible(true);
+                        }
+                    }
+                    if(data.prezzo) {
+                        document.getElementById('item-price').value = data.prezzo.valore || '';
+                        document.getElementById('item-price-currency').value = data.prezzo.valuta || 'Yen';
+                        document.getElementById('item-price-indicative').checked = data.prezzo.indicativo || false;
+                        document.getElementById('item-price-per-person').checked = data.prezzo.perPersona || false;
+                    }
                     document.getElementById('item-notes').value = data.note || '';
                     document.getElementById('item-city').value = data.city || currentMapCity;
                 }
@@ -1309,11 +1344,14 @@
                 return;
             }
 
+            const latVal = document.getElementById('item-lat').value;
+            const lngVal = document.getElementById('item-lng').value;
+
             const itemData = {
                 nome: nome,
                 descrizione: document.getElementById('item-description').value.trim(),
                 tag: document.getElementById('item-tag').value,
-                giornoIndicativo: document.getElementById('item-indicative-day').value,
+                giornoIndicativo: document.getElementById('item-indicative-day').value || null,
                 orarioInizio: document.getElementById('item-start-time').value,
                 orarioFine: document.getElementById('item-end-time').value,
                 prenotabile: document.getElementById('item-bookable').checked,
@@ -1324,8 +1362,8 @@
                 linkEsterno: document.getElementById('item-external-link').value.trim(),
                 linkMappa: document.getElementById('item-map-link').value.trim(),
                 coordinates: {
-                    lat: parseFloat(document.getElementById('item-lat').value) || null,
-                    lng: parseFloat(document.getElementById('item-lng').value) || null,
+                    lat: latVal ? parseFloat(latVal) : null,
+                    lng: lngVal ? parseFloat(lngVal) : null,
                 },
                 prezzo: {
                     valore: parseFloat(document.getElementById('item-price').value) || null,
@@ -1335,10 +1373,8 @@
                 },
                 note: document.getElementById('item-notes').value.trim(),
                 city: document.getElementById('item-city').value,
-                createdAt: new Date()
             };
 
-            // Validazione campi obbligatori se prenotato
             if(itemData.prenotabile && itemData.prenotato) {
                 if(!itemData.dataPrenotazione) {
                     showCustomAlert("Il campo 'Data Prenotazione' è obbligatorio quando l'elemento è prenotato.");
@@ -1346,15 +1382,13 @@
                 }
             }
 
-
             try {
                 if (editingItemId) {
-                    // Update
                     const itemRef = doc(db, "planner_items", editingItemId);
                     await updateDoc(itemRef, itemData);
                     showCustomAlert("Elemento aggiornato con successo!");
                 } else {
-                    // Create
+                    itemData.createdAt = new Date();
                     await addDoc(collection(db, "planner_items"), itemData);
                     showCustomAlert("Elemento creato con successo!");
                 }
@@ -1373,6 +1407,40 @@
 
             bookedFields.style.display = isBookable ? 'block' : 'none';
             bookingDetails.style.display = isBookable && isBooked ? 'grid' : 'none';
+        }
+
+        async function showUnassignedItems(city, dateToAssign) {
+            const listEl = document.getElementById('unassigned-items-list');
+            listEl.innerHTML = `<li>Caricamento...</li>`;
+            unassignedItemsModal.classList.remove('hidden');
+
+            const q = query(collection(db, "planner_items"), where("city", "==", city), where("giornoIndicativo", "==", null));
+            const snapshot = await getDocs(q);
+
+            listEl.innerHTML = '';
+            if (snapshot.empty) {
+                listEl.innerHTML = `<li class="text-gray-400 text-center p-4">Nessun elemento non assegnato per ${city}.</li>`;
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const item = { id: doc.id, ...doc.data() };
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-3 bg-gray-700 rounded-md';
+                li.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-white">${item.nome}</p>
+                        <p class="text-xs text-gray-400">${item.tag}</p>
+                    </div>
+                    <button class="assign-item-btn bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded-md">Aggiungi a oggi</button>
+                `;
+                li.querySelector('.assign-item-btn').onclick = async () => {
+                    await updateDoc(doc.ref, { giornoIndicativo: dateToAssign });
+                    showCustomAlert(`'${item.nome}' aggiunto al ${dateToAssign}.`);
+                    unassignedItemsModal.classList.add('hidden');
+                };
+                listEl.appendChild(li);
+            });
         }
 
 
@@ -1427,7 +1495,7 @@
             if (input.value.trim() && date) {
                 await addDoc(collection(db, "trip-notes"), { date, text: input.value.trim(), source: 'manual', createdAt: new Date() });
                 input.value = '';
-                input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
+                input.dispatchEvent(new Event('input')); 
             }
         }
 
@@ -1455,7 +1523,7 @@
                     });
                     input.value = '';
                     output.value = '';
-                    input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
+                    input.dispatchEvent(new Event('input')); 
                 }
             } catch (error) {
                 output.value = `Errore di traduzione.`;
@@ -1474,7 +1542,7 @@
             const output = document.getElementById('translate-output-chat');
             input.value = '';
             output.value = '';
-            input.dispatchEvent(new Event('input')); // Aggiorna stato bottone
+            input.dispatchEvent(new Event('input'));
         }
 
         function showCustomAlert(message) {
@@ -1538,7 +1606,8 @@
         @keyframes slideRightIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideRightOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
         @keyframes slideLeftIn { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
-        #map { height: 400px; width: 100%; border-radius: 0.5rem; }
+        #map, #item-modal-map { height: 400px; width: 100%; border-radius: 0.5rem; background-color: #4b5563; }
+        #item-modal-map { height: 200px; }
         .collapsible-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out, margin 0.4s ease-in-out; opacity: 1; }
         .collapsible-content.collapsed { max-height: 0; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; }
@@ -1620,7 +1689,6 @@
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="weather-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="cloud-sun" class="w-5 h-5 text-red-400"></i>Meteo</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="weather-content" class="collapsible-content pt-4"><div id="weather-widget"></div><button id="current-location-weather-btn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md flex items-center justify-center gap-2 text-sm"><i data-lucide="map-pin" class="w-4 h-4"></i><span class="hidden sm:inline">Posizione Attuale</span></button></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="accommodation-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="bed-double" class="w-5 h-5 text-red-400"></i>Alloggio</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="accommodation-content" class="collapsible-content pt-4"><div id="accommodation-widget"></div></div></div>
                         
-                        <!-- SEZIONE SPOSTAMENTI (SEPARATA) -->
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
                             <div class="collapsible-header" data-target="travel-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="map" class="w-5 h-5 text-red-400"></i>Spostamenti</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
                             <div id="travel-content" class="collapsible-content pt-4">
@@ -1632,13 +1700,13 @@
                             </div>
                         </div>
 
-                        <!-- SEZIONE EVENTI E LUOGHI (SEPARATA E NUOVA) -->
                          <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
                             <div class="collapsible-header" data-target="planner-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Eventi e Luoghi di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
                             <div id="planner-items-content" class="collapsible-content pt-4">
-                                <div id="day-planner-items-list" class="space-y-4 max-h-96 overflow-y-auto pr-2 mb-4"></div>
-                                <div id="planner-item-actions" class="flex gap-2 mt-4">
-                                    <button class="add-planner-item-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Aggiungi Evento/Luogo</button>
+                                <div id="day-planner-items-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 mb-4"></div>
+                                <div id="planner-item-actions" class="flex flex-col sm:flex-row gap-2 mt-4">
+                                    <button class="add-planner-item-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Crea Nuovo</button>
+                                    <button class="add-existing-item-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="list-plus" class="w-4 h-4"></i> Aggiungi da Mappa</button>
                                 </div>
                             </div>
                         </div>
@@ -1788,7 +1856,7 @@
     <div id="custom-alert-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden"><div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 max-w-sm w-full text-center"><p id="custom-alert-message" class="text-white mb-4"></p><button id="custom-alert-close-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">OK</button></div></div>
     <div id="custom-confirm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden"><div class="bg-gray-800 p-6 rounded-lg shadow-xl border border-gray-700 max-w-sm w-full text-center"><p id="custom-confirm-message" class="text-white mb-4"></p><div class="flex justify-center gap-4"><button id="custom-confirm-yes-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Sì</button><button id="custom-confirm-no-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">No</button></div></div></div>
 
-    <!-- NUOVO MODALE UNIFICATO PER AGGIUNGERE/MODIFICARE ELEMENTI -->
+    <!-- MODALE UNIFICATO PER AGGIUNGERE/MODIFICARE ELEMENTI -->
     <div id="item-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden p-4">
         <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-3xl max-h-full overflow-y-auto">
             <form id="item-form" onsubmit="return false;">
@@ -1798,27 +1866,34 @@
                         <button type="button" id="close-item-modal-btn" class="p-2 rounded-full hover:bg-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
                     </div>
 
-                    <!-- Sezione Ricerca Mappa -->
-                    <div class="bg-gray-700/50 p-3 rounded-lg mb-4">
-                        <label for="item-modal-search-query" class="block text-sm font-medium text-gray-300 mb-1">Cerca luogo per precompilare</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="item-modal-search-query" class="form-input flex-grow" placeholder="Es. Tokyo Skytree...">
-                            <button type="button" id="item-modal-search-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 rounded-md"><i data-lucide="search" class="w-5 h-5"></i></button>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6">
+                        <!-- Colonna sinistra: Form -->
+                        <div class="space-y-4">
+                            <!-- Dettagli Principali -->
+                            <div><label for="item-name" class="block text-sm font-medium text-gray-300 mb-1">Nome*</label><input type="text" id="item-name" class="form-input w-full" required></div>
+                            <div><label for="item-description" class="block text-sm font-medium text-gray-300 mb-1">Descrizione</label><textarea id="item-description" rows="2" class="form-input w-full"></textarea></div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label for="item-tag" class="block text-sm font-medium text-gray-300 mb-1">TAG</label><select id="item-tag" class="form-select w-full"><option>Ristorante</option><option>Attrazione</option><option>Trasporto</option><option>Alloggio</option><option>Evento</option></select></div>
+                                <div><label for="item-indicative-day" class="block text-sm font-medium text-gray-300 mb-1">Giorno Indicativo</label><input type="date" id="item-indicative-day" class="form-input w-full"></div>
+                                <div><label for="item-start-time" class="block text-sm font-medium text-gray-300 mb-1">Orario Inizio</label><input type="time" id="item-start-time" class="form-input w-full"></div>
+                                <div><label for="item-end-time" class="block text-sm font-medium text-gray-300 mb-1">Orario Fine</label><input type="time" id="item-end-time" class="form-input w-full"></div>
+                            </div>
                         </div>
-                        <ul id="item-modal-search-results" class="mt-2 bg-gray-800 rounded-md max-h-32 overflow-y-auto"></ul>
+                        <!-- Colonna destra: Mappa e Ricerca -->
+                        <div class="space-y-4 row-start-1 lg:row-start-auto">
+                            <div class="bg-gray-700/50 p-3 rounded-lg">
+                                <label for="item-modal-search-query" class="block text-sm font-medium text-gray-300 mb-1">Cerca luogo per precompilare</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="item-modal-search-query" class="form-input flex-grow" placeholder="Es. Tokyo Skytree...">
+                                    <button type="button" id="item-modal-search-btn" class="bg-red-600 hover:bg-red-700 text-white px-4 rounded-md"><i data-lucide="search" class="w-5 h-5"></i></button>
+                                </div>
+                                <ul id="item-modal-search-results" class="mt-2 bg-gray-800 rounded-md max-h-32 overflow-y-auto"></ul>
+                            </div>
+                            <div id="item-modal-map"></div>
+                        </div>
                     </div>
 
-                    <!-- Dettagli Principali -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="md:col-span-2"><label for="item-name" class="block text-sm font-medium text-gray-300 mb-1">Nome*</label><input type="text" id="item-name" class="form-input w-full" required></div>
-                        <div class="md:col-span-2"><label for="item-description" class="block text-sm font-medium text-gray-300 mb-1">Descrizione</label><textarea id="item-description" rows="2" class="form-input w-full"></textarea></div>
-                        <div><label for="item-tag" class="block text-sm font-medium text-gray-300 mb-1">TAG</label><select id="item-tag" class="form-select w-full"><option>Ristorante</option><option>Attrazione</option><option>Trasporto</option><option>Alloggio</option><option>Evento</option></select></div>
-                        <div><label for="item-indicative-day" class="block text-sm font-medium text-gray-300 mb-1">Giorno Indicativo</label><input type="date" id="item-indicative-day" class="form-input w-full"></div>
-                        <div><label for="item-start-time" class="block text-sm font-medium text-gray-300 mb-1">Orario Inizio</label><input type="time" id="item-start-time" class="form-input w-full"></div>
-                        <div><label for="item-end-time" class="block text-sm font-medium text-gray-300 mb-1">Orario Fine</label><input type="time" id="item-end-time" class="form-input w-full"></div>
-                    </div>
-
-                    <!-- Sezione Prenotazione -->
+                    <!-- Sezioni aggiuntive -->
                     <div class="mt-4 border-t border-gray-700 pt-4">
                         <div class="flex items-center gap-3"><input type="checkbox" id="item-bookable" class="form-checkbox h-5 w-5"><label for="item-bookable" class="font-medium text-gray-300">Prenotabile</label></div>
                         <div id="item-booked-fields" class="mt-3 pl-8 space-y-3">
@@ -1830,8 +1905,6 @@
                              </div>
                         </div>
                     </div>
-                    
-                    <!-- Sezione Prezzo -->
                     <div class="mt-4 border-t border-gray-700 pt-4">
                         <label class="font-medium text-gray-300">Prezzo</label>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
@@ -1841,31 +1914,39 @@
                             <div class="flex items-center gap-2"><input type="checkbox" id="item-price-per-person" class="form-checkbox"><label for="item-price-per-person" class="text-sm">Per Persona</label></div>
                         </div>
                     </div>
-
-                    <!-- Links e Coordinate -->
                      <div class="mt-4 border-t border-gray-700 pt-4">
                         <label class="font-medium text-gray-300">Dettagli Aggiuntivi</label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                            <div><label for="item-external-link" class="block text-sm font-medium text-gray-300 mb-1">Link a Piattaforma Esterna</label><input type="url" id="item-external-link" class="form-input w-full" placeholder="https://..."></div>
+                            <div><label for="item-external-link" class="block text-sm font-medium text-gray-300 mb-1">Link Esterno</label><input type="url" id="item-external-link" class="form-input w-full" placeholder="https://..."></div>
                             <div><label for="item-map-link" class="block text-sm font-medium text-gray-300 mb-1">Link Google Maps</label><input type="url" id="item-map-link" class="form-input w-full" placeholder="https://maps.app.goo.gl/..."></div>
                             <div><label for="item-lat" class="block text-sm font-medium text-gray-300 mb-1">Latitudine</label><input type="number" step="any" id="item-lat" class="form-input w-full"></div>
                             <div><label for="item-lng" class="block text-sm font-medium text-gray-300 mb-1">Longitudine</label><input type="number" step="any" id="item-lng" class="form-input w-full"></div>
                             <div class="hidden"><input type="text" id="item-city" class="form-input w-full"></div>
                         </div>
                     </div>
-
-                    <!-- Note -->
                     <div class="mt-4 border-t border-gray-700 pt-4">
                         <label for="item-notes" class="block text-sm font-medium text-gray-300 mb-1">Note</label>
                         <textarea id="item-notes" rows="3" class="form-input w-full"></textarea>
                     </div>
                 </div>
-                <!-- Pulsanti Azione -->
                 <div class="bg-gray-700/50 px-6 py-4 flex justify-end gap-3">
-                    <button type="button" id="cancel-item-btn" onclick="closeItemModal()" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Annulla</button>
+                    <button type="button" onclick="closeItemModal()" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Annulla</button>
                     <button type="button" id="save-item-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Salva</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODALE PER AGGIUNGERE ITEM ESISTENTI -->
+    <div id="unassigned-items-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-lg">
+            <div class="p-6">
+                 <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-white">Aggiungi Elemento Esistente</h3>
+                    <button type="button" id="close-unassigned-modal-btn" class="p-2 rounded-full hover:bg-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <ul id="unassigned-items-list" class="space-y-2 max-h-96 overflow-y-auto"></ul>
+            </div>
         </div>
     </div>
     
