@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Viaggio in Giappone 2025</title>
+    <title>Viaggio in Giappone 2024</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -187,33 +187,30 @@
             chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
             translateInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); translateAndAddChat(); } });
 
-            // Import JSON
-            const importJsonBtn = document.getElementById('import-json-btn');
-            const importJsonInput = document.getElementById('import-json-input');
-            if (importJsonBtn && importJsonInput) {
-                importJsonBtn.addEventListener('click', () => importJsonInput.click());
-                importJsonInput.addEventListener('change', async (event) => {
-                    const file = event.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = async (e) => {
-                            try {
-                                const jsonData = JSON.parse(e.target.result);
-                                if (Array.isArray(jsonData)) {
-                                    await importItineraryFromJson(jsonData);
-                                    showCustomAlert('Itinerario importato con successo!');
-                                } else {
-                                    showCustomAlert('Errore: Il file JSON non contiene un array valido.');
-                                }
-                            } catch (error) {
-                                console.error("Errore importazione JSON:", error);
-                                showCustomAlert('Errore durante l\'importazione del file JSON.');
+            // Import JSON & Migration
+            document.getElementById('import-json-btn').addEventListener('click', () => document.getElementById('import-json-input').click());
+            document.getElementById('import-json-input').addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const jsonData = JSON.parse(e.target.result);
+                            if (Array.isArray(jsonData)) {
+                                await importItineraryFromJson(jsonData);
+                                showCustomAlert('Itinerario importato con successo!');
+                            } else {
+                                showCustomAlert('Errore: Il file JSON non contiene un array valido.');
                             }
-                        };
-                        reader.readAsText(file);
-                    }
-                });
-            }
+                        } catch (error) {
+                            console.error("Errore importazione JSON:", error);
+                            showCustomAlert('Errore durante l\'importazione del file JSON.');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+            document.getElementById('migrate-data-btn').addEventListener('click', migrateOldData);
             
             // =================================================================
             // GESTIONE DEGLI EVENTI GLOBALE (EVENT DELEGATION)
@@ -1583,6 +1580,108 @@
             await batch.commit();
         }
         
+        // ========================================================================
+        // FUNZIONE DI MIGRAZIONE DATI
+        // ========================================================================
+        async function migrateOldData() {
+            if (!await showCustomConfirm("Sei sicuro di voler avviare la migrazione dei dati? Questa operazione è da eseguire una sola volta e sposterà i vecchi 'eventi' e 'luoghi pinnati' nella nuova struttura dati. L'operazione non è reversibile.")) {
+                return;
+            }
+
+            const migrationStatusRef = doc(db, "_meta", "migrationStatus");
+            const migrationStatusDoc = await getDoc(migrationStatusRef);
+
+            if (migrationStatusDoc.exists() && migrationStatusDoc.data().completed) {
+                showCustomAlert("La migrazione è già stata completata in precedenza.");
+                return;
+            }
+
+            showCustomAlert("Avvio migrazione... L'operazione potrebbe richiedere qualche istante. Riceverai un messaggio al termine.");
+
+            const batch = writeBatch(db);
+            let itemsMigrated = 0;
+
+            try {
+                // 1. Migrazione da 'pinned-places'
+                const pinnedPlacesSnapshot = await getDocs(collection(db, "pinned-places"));
+                pinnedPlacesSnapshot.forEach(placeDoc => { // <-- CORREZIONE: rinominato 'doc' in 'placeDoc'
+                    const oldPlace = placeDoc.data();
+                    const newItem = {
+                        nome: oldPlace.name || 'Senza nome',
+                        descrizione: '',
+                        tag: oldPlace.tag || 'Attrazione',
+                        giornoIndicativo: oldPlace.reservationDate || null,
+                        orarioInizio: oldPlace.isBooked ? oldPlace.reservationTime : null,
+                        orarioFine: null,
+                        prenotabile: typeof oldPlace.isBooked !== 'undefined',
+                        prenotato: oldPlace.isBooked || false,
+                        dataPrenotazione: oldPlace.isBooked ? oldPlace.reservationDate : null,
+                        orarioPrenotazione: oldPlace.isBooked ? oldPlace.reservationTime : null,
+                        linkPrenotazione: oldPlace.bookingFileLink || '',
+                        linkEsterno: '',
+                        linkMappa: oldPlace.mapUrl || '',
+                        coordinates: {
+                            lat: oldPlace.latitude || null,
+                            lng: oldPlace.longitude || null,
+                        },
+                        prezzo: { valore: null, valuta: 'Yen', indicativo: false, perPersona: false },
+                        note: oldPlace.notes || '',
+                        city: oldPlace.city || 'Sconosciuta',
+                        createdAt: oldPlace.createdAt || new Date(),
+                    };
+                    const newPlannerItemRef = doc(collection(db, "planner_items"));
+                    batch.set(newPlannerItemRef, newItem);
+                    itemsMigrated++;
+                });
+
+                // 2. Migrazione da 'itinerary.events'
+                const itinerarySnapshot = await getDocs(collection(db, "itinerary"));
+                itinerarySnapshot.forEach(dayDoc => {
+                    const dayData = dayDoc.data();
+                    if (dayData.events && Array.isArray(dayData.events)) {
+                        dayData.events.forEach(oldEvent => {
+                            const newItem = {
+                                nome: oldEvent.name || 'Senza nome',
+                                descrizione: oldEvent.details || '',
+                                tag: 'Evento',
+                                giornoIndicativo: dayDoc.id,
+                                orarioInizio: oldEvent.start || null,
+                                orarioFine: oldEvent.end || null,
+                                prenotabile: false,
+                                prenotato: false,
+                                dataPrenotazione: null,
+                                orarioPrenotazione: null,
+                                linkPrenotazione: '',
+                                linkEsterno: oldEvent.link || '',
+                                linkMappa: '',
+                                coordinates: { lat: null, lng: null },
+                                prezzo: { 
+                                    valore: oldEvent.price ? parseFloat(oldEvent.price) : null, 
+                                    valuta: 'Yen', indicativo: true, perPersona: false 
+                                },
+                                note: '',
+                                city: dayData.location.split('/')[0].trim(),
+                                createdAt: new Date(),
+                            };
+                            const newPlannerItemRef = doc(collection(db, "planner_items"));
+                            batch.set(newPlannerItemRef, newItem);
+                            itemsMigrated++;
+                        });
+                    }
+                });
+
+                // Commit del batch e aggiornamento dello stato
+                batch.set(migrationStatusRef, { completed: true, completedAt: new Date() });
+                await batch.commit();
+
+                showCustomAlert(`Migrazione completata con successo! ${itemsMigrated} elementi sono stati migrati. Ora puoi rimuovere la vecchia collection 'pinned-places' e il campo 'events' dai documenti dell'itinerario da Firebase Console.`);
+
+            } catch (error) {
+                console.error("Errore durante la migrazione:", error);
+                showCustomAlert(`Errore durante la migrazione: ${error.message}`);
+            }
+        }
+
     </script>
 
     <style>
@@ -1629,7 +1728,7 @@
     <div id="login-container" class="min-h-screen flex items-center justify-center bg-gray-900">
         <div class="w-full max-w-sm">
             <div class="bg-gray-800 shadow-2xl rounded-lg p-8 border border-gray-700">
-                <h2 class="text-2xl font-bold text-center mb-6 text-white">Viaggio in Giappone 2025</h2>
+                <h2 class="text-2xl font-bold text-center mb-6 text-white">Viaggio in Giappone 2024</h2>
                 <form id="login-form">
                     <div class="mb-4">
                         <label for="email" class="block text-gray-400 text-sm font-bold mb-2">Email</label>
@@ -1660,7 +1759,7 @@
 
         <!-- Home View -->
         <div id="home-view" class="view-transition opacity-0">
-            <header class="p-4 sm:p-6 text-center"><h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1><p class="text-gray-400">Giappone 2025</p></header>
+            <header class="p-4 sm:p-6 text-center"><h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1><p class="text-gray-400">Giappone 2024</p></header>
             <main class="p-4 sm:p-6">
                 <img id="home-title-image" src="" alt="Paesaggio Giapponese" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
                 <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4">
@@ -1671,7 +1770,20 @@
                     </div>
                     <div id="itinerary-list-container" class="space-y-2"></div>
                 </div>
-                <div class="mt-6 bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="file-json" class="w-5 h-5 text-red-400"></i>Importa Itinerario</h3><p class="text-gray-400 text-sm mb-4">Aggiorna l'itinerario caricando un file JSON.</p><button id="import-json-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Seleziona File</button><input type="file" id="import-json-input" accept=".json" class="hidden"></div>
+                <div class="mt-6 bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up">
+                    <h3 class="font-semibold text-lg mb-3 flex items-center gap-2 text-white"><i data-lucide="settings-2" class="w-5 h-5 text-red-400"></i>Impostazioni Avanzate</h3>
+                    <div class="space-y-3">
+                         <div>
+                            <p class="text-gray-400 text-sm mb-2">Aggiorna l'itinerario caricando un file JSON.</p>
+                            <button id="import-json-btn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-md">Importa Itinerario da JSON</button>
+                            <input type="file" id="import-json-input" accept=".json" class="hidden">
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm mb-2">Esegui la migrazione una tantum dei vecchi dati (eventi e luoghi pinnati) alla nuova struttura dati.</p>
+                            <button id="migrate-data-btn" class="w-full bg-amber-600 hover:bg-amber-700 text-white p-2 rounded-md">Avvia Migrazione Dati</button>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
 
@@ -1701,7 +1813,7 @@
                         </div>
 
                          <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
-                            <div class="collapsible-header" data-target="planner-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Eventi e Luoghi di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
+                            <div class="collapsible-header" data-target="planner-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Planner</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
                             <div id="planner-items-content" class="collapsible-content pt-4">
                                 <div id="day-planner-items-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 mb-4"></div>
                                 <div id="planner-item-actions" class="flex flex-col sm:flex-row gap-2 mt-4">
