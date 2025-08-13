@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Viaggio in Giappone 2024</title>
+    <!-- FAVICON -->
+    <link rel="icon" type="image/png" href="images/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1773,7 +1775,7 @@
     </script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #f8f8f8; padding-top: 64px; }
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #f8f8f8; padding-top: 120px; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 4px; }
@@ -1814,10 +1816,11 @@
 </head>
 <body class="text-gray-300">
 
-    <div id="login-container" class="min-h-screen flex items-center justify-center bg-gray-900">
-        <div class="w-full max-w-sm">
+    <div id="login-container" class="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+        <div class="w-full max-w-sm text-center">
+             <img src="images/logo.png" alt="Logo" class="h-20 w-20 mx-auto mb-4" onerror="this.style.display='none'">
             <div class="bg-gray-800 shadow-2xl rounded-lg p-8 border border-gray-700">
-                <h2 class="text-2xl font-bold text-center mb-6 text-white">Viaggio in Giappone 2024</h2>
+                <h2 class="text-2xl font-bold text-center mb-6 text-white">Viaggio in Giappone 2025</h2>
                 <form id="login-form">
                     <div class="mb-4">
                         <label for="email" class="block text-gray-400 text-sm font-bold mb-2">Email</label>
@@ -1835,8 +1838,16 @@
     </div>
 
     <div id="app-container" class="w-full h-full bg-gray-900 hidden">
+        <!-- NUOVA BARRA SUPERIORE CON LOGO -->
+        <header class="fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-700 z-50 h-16 flex items-center justify-center px-4 shadow-lg">
+            <div class="flex items-center gap-3">
+                <img src="images/logo.png" alt="Logo" class="h-16 w-16" onerror="this.style.display='none'">
+                <span class="text-white font-bold text-xl uppercase tracking-wider hidden sm:block">Stick to the Plan</span>
+            </div>
+        </header>
+
         <!-- Barra di Navigazione Fissa -->
-        <nav class="fixed top-0 left-0 right-0 bg-gray-800 p-4 border-b border-gray-700 z-50 flex justify-between items-center shadow-lg">
+        <nav class="fixed top-16 left-0 right-0 bg-gray-800 p-4 border-b border-gray-700 z-40 flex justify-between items-center shadow-lg">
             <div class="flex items-center gap-2 sm:gap-4">
                 <button id="nav-itinerary-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors flex items-center gap-2"><i data-lucide="list-checks" class="w-5 h-5"></i><span class="hidden sm:inline">Itinerario</span></button>
                 <button id="nav-backpack-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition-colors flex items-center gap-2"><i data-lucide="backpack" class="w-5 h-5"></i><span class="hidden sm:inline">Zaino</span></button>
@@ -1848,7 +1859,9 @@
 
         <!-- Home View -->
         <div id="home-view" class="view-transition opacity-0">
-            <header class="p-4 sm:p-6 text-center"><h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1><p class="text-gray-400">Giappone 2024</p></header>
+            <header class="p-4 sm:p-6 text-center">
+                 <img src="images/logo.png" alt="Logo" class="h-20 w-20 mx-auto mb-4" onerror="this.style.display='none'">
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">Itinerario di Viaggio</h1><p class="text-gray-400">Giappone 2025</p></header>
             <main class="p-4 sm:p-6">
                 <img id="home-title-image" src="" alt="Paesaggio Giapponese" class="w-full max-w-3xl mx-auto aspect-video object-cover rounded-lg mb-6 shadow-md">
                 <div class="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-4">
