@@ -42,6 +42,7 @@
         let currentDayUnsubscribeNotes = null;
         let currentDayUnsubscribeExpenses = null;
         let currentDayUnsubscribePlannerItems = null; 
+        let currentDayUnsubscribeUnassignedItems = null;
         let itineraryUnsubscribe = null;
         let backpackUnsubscribe = null;
         let plannerItemsUnsubscribe = null; 
@@ -52,12 +53,15 @@
         let currentBackpackUser = 'pino';
         let currentBackpackFilter = 'Tutti';
         let map;
-        let modalMap; // Mappa per il modale
+        let modalMap;
+        let dayDetailMap;
         let modalMarker;
+        let dayDetailMapMarkers = [];
         let currentMapCity = 'Tokyo';
         let mapMarkers = [];
         let googleMapsApiLoaded = false;
         let editingItemId = null; 
+        let currentUnassignedFilter = 'Tutti';
 
         let currentPlannerItemTagFilter = 'Tutti';
         let currentPlannerItemBookedFilter = 'Tutti';
@@ -74,7 +78,6 @@
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const itemModal = document.getElementById('item-modal');
-        const unassignedItemsModal = document.getElementById('unassigned-items-modal');
 
 
         // Gestione autenticazione
@@ -94,6 +97,7 @@
                 if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
                 if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
                 if (currentDayUnsubscribePlannerItems) currentDayUnsubscribePlannerItems();
+                if (currentDayUnsubscribeUnassignedItems) currentDayUnsubscribeUnassignedItems();
                 if (backpackUnsubscribe) backpackUnsubscribe();
                 if (plannerItemsUnsubscribe) plannerItemsUnsubscribe();
                 if (chatUnsubscribe) chatUnsubscribe();
@@ -217,6 +221,14 @@
             // =================================================================
             appContainer.addEventListener('click', async (e) => {
                 const dayData = tripData.find(d => d.date === currentActiveDate);
+                
+                // Home View Card Click
+                const dayCard = e.target.closest('.day-card-btn');
+                if (dayCard && dayCard.dataset.date) {
+                    renderDayDetailView(dayCard.dataset.date);
+                    navigateTo('day-detail');
+                    return;
+                }
 
                 // Planner Items (Modifica / Elimina)
                 const editPlannerBtn = e.target.closest('.edit-planner-item-btn');
@@ -248,12 +260,16 @@
                         }
                     }
 
-                    // Planner Items (Aggiungi nuovo / Aggiungi esistente)
+                    // Planner Items (Aggiungi nuovo)
                     if (e.target.closest('.add-planner-item-btn')) {
                         openItemModal({ city: dayData.location.split('/')[0].trim(), giornoIndicativo: currentActiveDate });
                     }
-                    if (e.target.closest('.add-existing-item-btn')) {
-                        showUnassignedItems(dayData.location.split('/')[0].trim(), currentActiveDate);
+                    
+                    // Filtri Luoghi da Esplorare
+                    const unassignedFilterBtn = e.target.closest('.unassigned-filter-btn');
+                    if (unassignedFilterBtn) {
+                        currentUnassignedFilter = unassignedFilterBtn.dataset.filter;
+                        loadAndDisplayUnassignedItemsForDay(dayData.location.split('/')[0].trim());
                     }
                 }
             });
@@ -264,7 +280,6 @@
             document.getElementById('item-modal-search-btn').addEventListener('click', searchPlacesForItemModal);
             document.getElementById('item-bookable').addEventListener('change', toggleBookingFields);
             document.getElementById('item-booked').addEventListener('change', toggleBookingFields);
-            document.getElementById('close-unassigned-modal-btn').addEventListener('click', () => unassignedItemsModal.classList.add('hidden'));
 
             // Initial setup calls
             setupCollapsibleBoxesDelegation();
@@ -371,7 +386,7 @@
             if (firstDayDate) firstDayDate.setHours(0, 0, 0, 0);
             tripData.forEach(day => {
                 const dayCard = document.createElement('div');
-                dayCard.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200 flex items-center gap-4';
+                dayCard.className = 'day-card-btn bg-gray-800 p-4 rounded-lg border border-gray-700 hover:bg-gray-700/50 cursor-pointer transition-colors duration-200 flex items-center gap-4';
                 dayCard.dataset.date = day.date;
                 const dayDate = new Date(day.date);
                 dayDate.setHours(0, 0, 0, 0);
@@ -407,10 +422,6 @@
                         <i data-lucide="chevron-right" class="w-5 h-5 inline-block ${isHighlighted ? 'text-green-400' : (isPast ? 'text-gray-600' : 'text-red-400')}"></i>
                     </div>
                 `;
-                dayCard.addEventListener('click', () => {
-                    renderDayDetailView(day.date);
-                    navigateTo('day-detail');
-                });
                 itineraryListContainer.appendChild(dayCard);
             });
             lucide.createIcons();
@@ -425,6 +436,7 @@
             if (currentDayUnsubscribeNotes) currentDayUnsubscribeNotes();
             if (currentDayUnsubscribeExpenses) currentDayUnsubscribeExpenses();
             if (currentDayUnsubscribePlannerItems) currentDayUnsubscribePlannerItems();
+            if (currentDayUnsubscribeUnassignedItems) currentDayUnsubscribeUnassignedItems();
             if (backpackUnsubscribe) backpackUnsubscribe();
             if (plannerItemsUnsubscribe) plannerItemsUnsubscribe();
             if (chatUnsubscribe) chatUnsubscribe();
@@ -443,7 +455,7 @@
 
             // Weather and Clocks
             const cityKey = dayData.location.split('/')[0].trim();
-            const coords = cityCoordinates[cityKey] || cityCoordinates["default"];
+            const coords = cityCoordinates[cityKey] || cityCoordinates.default;
             getWeather(coords.latitude, coords.longitude, cityKey);
             updateClock('Asia/Tokyo', 'local-time');
             updateClock('Europe/Rome', 'italian-local-time');
@@ -514,6 +526,7 @@
             // Load other dynamic sections
             loadAndDisplayExpenses(dateString);
             loadAndDisplayPlannerItemsForDay(dateString);
+            loadAndDisplayUnassignedItemsForDay(cityKey);
             renderTodaysBackpackItems(cityKey);
             
             // Navigation buttons
@@ -1049,12 +1062,13 @@
         }
         
         window.initMap = function() {
+            const center = { lat: 35.6895, lng: 139.6917 };
             // Main map
-            map = new google.maps.Map(document.getElementById('map'), { center: { lat: 35.6895, lng: 139.6917 }, zoom: 12, mapId: 'DEMO_MAP_ID' });
+            map = new google.maps.Map(document.getElementById('map'), { center, zoom: 12, mapId: 'DEMO_MAP_ID' });
             loadAndDisplayPlannerItems(currentMapCity);
 
             // Modal map
-            modalMap = new google.maps.Map(document.getElementById('item-modal-map'), { center: { lat: 35.6895, lng: 139.6917 }, zoom: 15, mapId: 'DEMO_MAP_ID_MODAL' });
+            modalMap = new google.maps.Map(document.getElementById('item-modal-map'), { center, zoom: 15, mapId: 'DEMO_MAP_ID_MODAL' });
             modalMarker = new google.maps.Marker({ map: modalMap });
             
             modalMap.addListener('click', (e) => {
@@ -1065,6 +1079,9 @@
                 modalMarker.setPosition(e.latLng);
                 modalMarker.setVisible(true);
             });
+
+            // Day Detail Map
+            dayDetailMap = new google.maps.Map(document.getElementById('day-detail-map'), { center, zoom: 12, mapId: 'DEMO_MAP_ID_DAY' });
         };
         async function loadGoogleMapsScript() {
             if (googleMapsApiLoaded) return;
@@ -1405,38 +1422,89 @@
             bookedFields.style.display = isBookable ? 'block' : 'none';
             bookingDetails.style.display = isBookable && isBooked ? 'grid' : 'none';
         }
-
-        async function showUnassignedItems(city, dateToAssign) {
-            const listEl = document.getElementById('unassigned-items-list');
+        
+        function loadAndDisplayUnassignedItemsForDay(city) {
+            const listEl = document.getElementById('unassigned-items-list-day');
             listEl.innerHTML = `<li>Caricamento...</li>`;
-            unassignedItemsModal.classList.remove('hidden');
-
-            const q = query(collection(db, "planner_items"), where("city", "==", city), where("giornoIndicativo", "==", null));
-            const snapshot = await getDocs(q);
-
-            listEl.innerHTML = '';
-            if (snapshot.empty) {
-                listEl.innerHTML = `<li class="text-gray-400 text-center p-4">Nessun elemento non assegnato per ${city}.</li>`;
-                return;
+            
+            if (dayDetailMap) {
+                const coords = cityCoordinates[city] || cityCoordinates.default;
+                dayDetailMap.setCenter({ lat: coords.latitude, lng: coords.longitude });
+                dayDetailMapMarkers.forEach(m => m.setMap(null));
+                dayDetailMapMarkers = [];
             }
 
-            snapshot.forEach(doc => {
-                const item = { id: doc.id, ...doc.data() };
-                const li = document.createElement('li');
-                li.className = 'flex justify-between items-center p-3 bg-gray-700 rounded-md';
-                li.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-white">${item.nome}</p>
-                        <p class="text-xs text-gray-400">${item.tag}</p>
-                    </div>
-                    <button class="assign-item-btn bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-3 rounded-md">Aggiungi a oggi</button>
-                `;
-                li.querySelector('.assign-item-btn').onclick = async () => {
-                    await updateDoc(doc.ref, { giornoIndicativo: dateToAssign });
-                    showCustomAlert(`'${item.nome}' aggiunto al ${dateToAssign}.`);
-                    unassignedItemsModal.classList.add('hidden');
-                };
-                listEl.appendChild(li);
+            document.querySelectorAll('.unassigned-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500', 'ring-2', 'ring-blue-300');
+                if (btn.dataset.filter === currentUnassignedFilter) {
+                    btn.classList.add('bg-blue-500', 'ring-2', 'ring-blue-300');
+                }
+            });
+
+            let tagsToQuery = ['Ristorante', 'Attrazione'];
+            if (currentUnassignedFilter !== 'Tutti') {
+                tagsToQuery = [currentUnassignedFilter];
+            }
+
+            const q = query(
+                collection(db, "planner_items"), 
+                where("city", "==", city), 
+                where("giornoIndicativo", "==", null),
+                where("tag", "in", tagsToQuery)
+            );
+            
+            if (currentDayUnsubscribeUnassignedItems) currentDayUnsubscribeUnassignedItems();
+            currentDayUnsubscribeUnassignedItems = onSnapshot(q, (snapshot) => {
+                listEl.innerHTML = '';
+                dayDetailMapMarkers.forEach(m => m.setMap(null));
+                dayDetailMapMarkers = [];
+
+                if (snapshot.empty) {
+                    listEl.innerHTML = `<li class="text-gray-400 text-center p-2">Nessun luogo da esplorare.</li>`;
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const item = { id: doc.id, ...doc.data() };
+                    const li = document.createElement('li');
+                    li.className = 'p-2 bg-gray-700/50 rounded-md cursor-pointer hover:bg-gray-600/50';
+                    li.dataset.id = item.id;
+                    li.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold text-white text-sm">${item.nome}</p>
+                                <p class="text-xs text-gray-400">${item.tag}</p>
+                            </div>
+                            <button data-id="${item.id}" class="edit-planner-item-btn bg-green-600 hover:bg-green-700 text-white text-xs py-1 px-2 rounded-md">Modifica/Assegna</button>
+                        </div>
+                    `;
+                    listEl.appendChild(li);
+
+                    if (item.coordinates && item.coordinates.lat && dayDetailMap) {
+                        const marker = new google.maps.Marker({
+                            position: item.coordinates,
+                            map: dayDetailMap,
+                            title: item.nome,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: item.tag === 'Ristorante' ? '#F97316' : '#3B82F6',
+                                fillOpacity: 0.9,
+                                strokeColor: 'white',
+                                strokeWeight: 2,
+                            }
+                        });
+                        marker.set('id', item.id);
+                        dayDetailMapMarkers.push(marker);
+
+                        li.addEventListener('mouseenter', () => {
+                            marker.setAnimation(google.maps.Animation.BOUNCE);
+                        });
+                        li.addEventListener('mouseleave', () => {
+                            marker.setAnimation(null);
+                        });
+                    }
+                });
             });
         }
 
@@ -1705,8 +1773,9 @@
         @keyframes slideRightIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideRightOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
         @keyframes slideLeftIn { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
-        #map, #item-modal-map { height: 400px; width: 100%; border-radius: 0.5rem; background-color: #4b5563; }
+        #map, #item-modal-map, #day-detail-map { height: 400px; width: 100%; border-radius: 0.5rem; background-color: #4b5563; }
         #item-modal-map { height: 200px; }
+        #day-detail-map { height: 250px; }
         .collapsible-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .collapsible-content { max-height: 1000px; overflow: hidden; transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out, margin 0.4s ease-in-out; opacity: 1; }
         .collapsible-content.collapsed { max-height: 0; opacity: 0; padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; }
@@ -1813,15 +1882,35 @@
                         </div>
 
                          <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
-                            <div class="collapsible-header" data-target="planner-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Planner</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
+                            <div class="collapsible-header" data-target="planner-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="calendar-check" class="w-5 h-5 text-green-400"></i>Eventi e Luoghi di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
                             <div id="planner-items-content" class="collapsible-content pt-4">
                                 <div id="day-planner-items-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 mb-4"></div>
                                 <div id="planner-item-actions" class="flex flex-col sm:flex-row gap-2 mt-4">
                                     <button class="add-planner-item-btn flex-1 bg-green-600 hover:bg-green-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Crea Nuovo</button>
-                                    <button class="add-existing-item-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-sm"><i data-lucide="list-plus" class="w-4 h-4"></i> Aggiungi da Mappa</button>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- NUOVO BOX: Luoghi da Esplorare -->
+                        <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 lg:col-span-2 fade-in-up">
+                            <div class="collapsible-header" data-target="unassigned-items-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="compass" class="w-5 h-5 text-blue-400"></i>Luoghi da Esplorare in Zona</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div>
+                            <div id="unassigned-items-content" class="collapsible-content pt-4">
+                                <div class="flex flex-col md:flex-row gap-4">
+                                    <div class="md:w-1/2 lg:w-2/3">
+                                        <div id="day-detail-map"></div>
+                                    </div>
+                                    <div class="md:w-1/2 lg:w-1/3">
+                                        <div class="flex gap-2 mb-3">
+                                            <button data-filter="Tutti" class="unassigned-filter-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md text-xs">Tutti</button>
+                                            <button data-filter="Ristorante" class="unassigned-filter-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md text-xs">Ristoranti</button>
+                                            <button data-filter="Attrazione" class="unassigned-filter-btn flex-1 bg-gray-600 hover:bg-gray-700 text-white p-2 rounded-md text-xs">Attrazioni</button>
+                                        </div>
+                                        <ul id="unassigned-items-list-day" class="space-y-2 max-h-60 overflow-y-auto pr-2"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
 
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="todays-backpack-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="backpack" class="w-5 h-5 text-red-400"></i>Zaino di Oggi</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="todays-backpack-content" class="collapsible-content pt-4"><div id="todays-backpack-widget" class="space-y-2"></div></div></div>
                         <div class="bg-gray-800 p-5 rounded-lg border border-gray-700 fade-in-up"><div class="collapsible-header" data-target="expenses-content"><h3 class="font-semibold text-lg flex items-center gap-2 text-white flex-grow"><i data-lucide="wallet" class="w-5 h-5 text-red-400"></i>Spese del Giorno</h3><i data-lucide="chevron-up" class="w-5 h-5 text-gray-400 toggle-icon"></i></div><div id="expenses-content" class="collapsible-content pt-4"><ul id="expenses-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto pr-2"></ul><div class="border-t border-gray-700 pt-3 mt-3 flex justify-between font-bold text-white"><span>Totale Giorno:</span><span id="total-expenses">0 ¥</span></div><div class="mt-4 flex gap-2"><input type="text" id="expense-description" placeholder="Descrizione" class="form-input w-2/3 p-2 text-sm"><input type="number" id="expense-amount" placeholder="Yen" class="form-input w-1/3 p-2 text-sm"></div><button id="save-expense-btn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-md">Aggiungi Spesa</button></div></div>
@@ -2046,19 +2135,6 @@
                     <button type="button" id="save-item-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Salva</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- MODALE PER AGGIUNGERE ITEM ESISTENTI -->
-    <div id="unassigned-items-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-full max-w-lg">
-            <div class="p-6">
-                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-white">Aggiungi Elemento Esistente</h3>
-                    <button type="button" id="close-unassigned-modal-btn" class="p-2 rounded-full hover:bg-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
-                </div>
-                <ul id="unassigned-items-list" class="space-y-2 max-h-96 overflow-y-auto"></ul>
-            </div>
         </div>
     </div>
     
