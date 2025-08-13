@@ -85,6 +85,7 @@
             if (user) {
                 loginContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
+                loadGoogleMapsScript(); // FIX: Carica le mappe subito
                 setupInitialItinerary().then(() => {
                     loadItineraryAndInitApp();
                     setupAppEventListeners();
@@ -122,7 +123,7 @@
             // Navigation
             document.getElementById('nav-itinerary-btn').addEventListener('click', () => navigateTo('home'));
             document.getElementById('nav-backpack-btn').addEventListener('click', () => { navigateTo('backpack'); loadAndDisplayBackpackItems(); });
-            document.getElementById('nav-map-btn').addEventListener('click', () => { navigateTo('map'); loadGoogleMapsScript(); populateMapCityDropdown(); });
+            document.getElementById('nav-map-btn').addEventListener('click', () => { navigateTo('map'); populateMapCityDropdown(); });
             document.getElementById('nav-chat-btn').addEventListener('click', () => {
                 navigateTo('chat');
                 populateChatDateDropdown();
@@ -1349,6 +1350,15 @@
             
             toggleBookingFields();
             itemModal.classList.remove('hidden');
+            // FIX: Trigger resize per la mappa del modale
+            setTimeout(() => {
+                if(google && modalMap) {
+                    google.maps.event.trigger(modalMap, 'resize');
+                    const cityKey = city || currentMapCity;
+                    const coords = cityCoordinates[cityKey] || cityCoordinates.default;
+                    modalMap.setCenter({ lat: coords.latitude, lng: coords.longitude });
+                }
+            }, 10);
         }
 
         async function saveItem() {
@@ -1498,10 +1508,10 @@
                         dayDetailMapMarkers.push(marker);
 
                         li.addEventListener('mouseenter', () => {
-                            marker.setAnimation(google.maps.Animation.BOUNCE);
+                            marker.setIcon({...marker.getIcon(), scale: 12});
                         });
                         li.addEventListener('mouseleave', () => {
-                            marker.setAnimation(null);
+                            marker.setIcon({...marker.getIcon(), scale: 8});
                         });
                     }
                 });
@@ -1635,9 +1645,19 @@
                     const content = document.getElementById(header.dataset.target);
                     const icon = header.querySelector('.toggle-icon');
                     if (content && icon) {
+                        const isCollapsed = content.classList.contains('collapsed');
                         content.classList.toggle('collapsed');
-                        icon.setAttribute('data-lucide', content.classList.contains('collapsed') ? 'chevron-down' : 'chevron-up');
+                        icon.setAttribute('data-lucide', isCollapsed ? 'chevron-up' : 'chevron-down');
                         lucide.createIcons();
+                        
+                        // FIX: Trigger resize per la mappa del dettaglio giorno quando viene aperta
+                        if (isCollapsed && content.id === 'unassigned-items-content') {
+                            setTimeout(() => {
+                                if(google && dayDetailMap) {
+                                    google.maps.event.trigger(dayDetailMap, 'resize');
+                                }
+                            }, 10); // Small delay to allow container to get dimensions
+                        }
                     }
                 }
             });
